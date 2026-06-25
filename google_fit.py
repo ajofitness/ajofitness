@@ -251,6 +251,7 @@ def sync_google_fit(user, db_session):
             raise ValueError('Nessun token Google trovato')
 
         weight_data = fetch_weight(token, start_date, today)
+        logger.info(f'Weight data from Google Fit: {len(weight_data)} entries: {weight_data}')
         for d, w in weight_data.items():
             existing = WeightLog.query.filter_by(user_id=user.id, date=d).first()
             if not existing:
@@ -259,6 +260,9 @@ def sync_google_fit(user, db_session):
                 stats['weights'] += 1
 
         sessions = fetch_sessions(token, start_date, today)
+        logger.info(f'Sessions from Google Fit: {len(sessions)} total')
+        if sessions and len(sessions) > 0:
+            logger.info(f'First session: {sessions[0]}')
         existing_sessions = set()
         for wo in WorkoutEntry.query.filter(
             WorkoutEntry.user_id == user.id,
@@ -303,5 +307,7 @@ def sync_google_fit(user, db_session):
         log.completed_at = utcnow()
         db_session.commit()
         logger.error(f'Google Fit sync error for user {user.id}: {e}')
+        import traceback
+        logger.error(traceback.format_exc())
 
     return stats
