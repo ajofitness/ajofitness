@@ -441,11 +441,8 @@ def sync_google_fit(user, db_session):
             if existing:
                 existing.steps = int(steps_data.get(d, existing.steps))
                 existing.calories_burned = calories_data.get(d, existing.calories_burned)
-                distance_km = round(distance_data.get(d, 0.0) / 1000, 2) if distance_data.get(d) else 0
-                if distance_km:
-                    existing.distance_km = distance_km
-                if existing.distance_km == 0 and existing.steps > 0:
-                    existing.distance_km = round(existing.steps * 0.75 / 1000, 2)
+                api_distance = round(distance_data.get(d, 0.0) / 1000, 2)
+                existing.distance_km = api_distance or round(existing.steps * 0.75 / 1000, 2)
                 hr = hr_data.get(d)
                 if hr:
                     existing.heart_rate_avg = hr['avg']
@@ -453,16 +450,16 @@ def sync_google_fit(user, db_session):
                     existing.heart_rate_min = hr['min']
                 existing.source = 'google_fit'
             else:
+                api_distance = round(distance_data.get(d, 0.0) / 1000, 2) if distance_data.get(d) else 0
+                dist = api_distance or round(int(steps_data.get(d, 0)) * 0.75 / 1000, 2)
                 entry = DailyActivity(
                     user_id=user.id,
                     date=d,
                     steps=int(steps_data.get(d, 0)),
                     calories_burned=calories_data.get(d, 0.0),
-                    distance_km=round(distance_data.get(d, 0.0) / 1000, 2),
+                    distance_km=dist,
                     source='google_fit',
                 )
-                if entry.distance_km == 0 and entry.steps > 0:
-                    entry.distance_km = round(entry.steps * 0.75 / 1000, 2)
                 hr = hr_data.get(d)
                 if hr:
                     entry.heart_rate_avg = hr['avg']
