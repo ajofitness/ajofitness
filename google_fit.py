@@ -187,15 +187,47 @@ def fetch_calories(access_token, start_date, end_date):
 
 
 def _find_weight_data_sources(access_token):
+    import logging
+    logger = logging.getLogger('ajo.sync')
     resp = requests.get(
         f'{GOOGLE_FIT_BASE}/dataSources',
         headers=_headers(access_token),
-        params={'dataTypeName': 'com.google.weight'},
     )
     if resp.status_code != 200:
+        logger.warning(f'DataSources API error: {resp.status_code}')
         return []
-    return [ds['dataStreamId'] for ds in resp.json().get('dataSource', [])
-            if ds.get('dataStreamId') and 'merge_weight' in ds['dataStreamId']]
+    all_sources = resp.json().get('dataSource', [])
+    weight_sources = []
+    for ds in all_sources:
+        sid = ds.get('dataStreamId', '')
+        dtype = ds.get('dataType', {}).get('name', '')
+        app = ds.get('application', {}).get('packageName', '')
+        logger.info(f'DataSource: {sid} type={dtype} app={app}')
+        if 'weight' in dtype:
+            weight_sources.append(sid)
+    return weight_sources
+
+
+def _fetch_weight_raw(access_token, data_source, start_ms, end_ms):
+    dataset_id = f'{start_ms * 1_000_000}-{end_ms * 1_000_000}'
+    resp = requests.get(
+        f'{GOOGLE_FIT_BASE}/dataSources/{data_source}/datasets/{dataset_id}',
+        headers=_headers(access_token),
+    )
+    if resp.status_code != 200:
+        return None
+    data = resp.json()
+    results = {}
+    for point in data.get('point', []):
+        nanos = point.get('startTimeNanos')
+        if not nanos:
+            continue
+        day = _date_from_nanos(int(nanos))
+        for val in point.get('value', []):
+            fp = val.get('fpVal')
+            if fp is not None:
+                results[day] = round(fp, 1)
+    return results
 
 
 def fetch_weight(access_token, start_date, end_date):
@@ -203,11 +235,10 @@ def fetch_weight(access_token, start_date, end_date):
     logger = logging.getLogger('ajo.sync')
     data_sources = _find_weight_data_sources(access_token)
     logger.info(f'Weight data sources found: {data_sources}')
-    if not data_sources:
-        data_sources = [
-            'derived:com.google.weight:com.google.android.gms:merge_weight',
-        ]
     results = {}
+    start_ms = int(datetime.combine(start_date, datetime.min.time()).timestamp() * 1000)
+    end_ms = int(datetime.combine(end_date, datetime.max.time()).timestamp() * 1000)
+
     for ds in data_sources:
         body = {
             'aggregateBy': [{
@@ -215,8 +246,8 @@ def fetch_weight(access_token, start_date, end_date):
                 'dataSourceId': ds,
             }],
             'bucketByTime': {'durationMillis': 86400000},
-            'startTimeMillis': int(datetime.combine(start_date, datetime.min.time()).timestamp() * 1000),
-            'endTimeMillis': int(datetime.combine(end_date, datetime.max.time()).timestamp() * 1000),
+            'startTimeMillis': start_ms,
+            'endTimeMillis': end_ms,
         }
         resp = requests.post(
             f'{GOOGLE_FIT_BASE}/dataset:aggregate',
@@ -224,7 +255,6 @@ def fetch_weight(access_token, start_date, end_date):
             json=body,
         )
         if resp.status_code == 200:
-            logger.info(f'Weight aggregate API success for ds={ds}')
             data = resp.json()
             for bucket in data.get('bucket', []):
                 day = _date_from_nanos(int(bucket['startTimeMillis']) * 1e6)
@@ -233,11 +263,20 @@ def fetch_weight(access_token, start_date, end_date):
                         if point.get('value') and 'fpVal' in point['value'][0]:
                             results[day] = round(point['value'][0]['fpVal'], 1)
             if results:
-                logger.info(f'Weight data from {ds}: {results}')
+                logger.info(f'Weight data from aggregate {ds}: {results}')
                 break
-            logger.info(f'No weight points in response for {ds}')
+            logger.info(f'No weight points in aggregate response for {ds}')
         else:
-            logger.warning(f'Weight API error for {ds}: {resp.status_code} {resp.text[:200]}')
+            logger.warning(f'Weight aggregate API error for {ds}: {resp.status_code}')
+            raw = _fetch_weight_raw(access_token, ds, start_ms, end_ms)
+            if raw:
+                logger.info(f'Weight data from raw dataset {ds}: {raw}')
+                results.update(raw)
+                break
+            logger.info(f'No weight from raw dataset {ds} either')
+
+    if not results:
+        logger.info('No weight data found via any method')
     return results
 
 
