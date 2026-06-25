@@ -30,6 +30,28 @@ FIT_ACTIVITY_MAP = {
     'hiking': 'walking_brisk',
     'dancing': 'running_easy',
     'biking': 'cycling_moderate',
+    'stretching': 'stretching',
+    'pilates': 'yoga',
+    'walking_fitness': 'walking_brisk',
+}
+
+FIT_ACTIVITY_CODES = {
+    8: 'running',
+    9: 'walking',
+    1: 'cycling',
+    2: 'cycling',
+    3: 'cycling',
+    17: 'strength_training',
+    16: 'swimming',
+    18: 'stretching',
+    19: 'yoga',
+    20: 'elliptical',
+    21: 'rowing',
+    22: 'hiking',
+    35: 'dancing',
+    54: 'pilates',
+    41: 'walking_fitness',
+    7: 'walking',
 }
 
 
@@ -210,7 +232,12 @@ def fetch_sessions(access_token, start_date, end_date):
 
 def map_activity_type(activity_type):
     from nutrition import ACTIVITY_METS
-    atype = activity_type.lower().replace(' ', '_') if activity_type else ''
+    if isinstance(activity_type, int):
+        mapped = FIT_ACTIVITY_CODES.get(activity_type, '')
+        if mapped:
+            return FIT_ACTIVITY_MAP.get(mapped, mapped)
+        return 'strength'
+    atype = str(activity_type).lower().replace(' ', '_') if activity_type else ''
     mapped = FIT_ACTIVITY_MAP.get(atype, atype)
     if mapped in ACTIVITY_METS:
         return mapped

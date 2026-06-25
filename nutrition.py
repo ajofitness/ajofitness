@@ -145,6 +145,7 @@ ACTIVITY_METS = {
     'yoga': 3.0,
     'rowing': 8.5,
     'elliptical': 5.0,
+    'stretching': 2.5,
 }
 
 ACTIVITY_LABELS_IT = {
