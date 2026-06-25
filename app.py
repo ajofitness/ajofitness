@@ -46,8 +46,8 @@ def _migrate_schema(engine):
         'google_refresh_token': 'TEXT',
         'google_token_expiry': 'DATETIME',
         'last_sync_at': 'DATETIME',
-        'approved': 'BOOLEAN DEFAULT 1',
-        'is_admin': 'BOOLEAN DEFAULT 0',
+        'approved': 'BOOLEAN DEFAULT TRUE',
+        'is_admin': 'BOOLEAN DEFAULT FALSE',
     }
     for col, col_type in additions.items():
         if col not in columns:
@@ -57,12 +57,12 @@ def _migrate_schema(engine):
                 logger.info(f'Added column {col} to users table')
 
     with engine.connect() as conn:
-        result = conn.execute(sa.text('SELECT id FROM users WHERE is_admin = 1 LIMIT 1'))
+        result = conn.execute(sa.text('SELECT id FROM users WHERE is_admin = TRUE LIMIT 1'))
         if not result.fetchone():
             result = conn.execute(sa.text('SELECT id, email FROM users ORDER BY id LIMIT 1'))
             row = result.fetchone()
             if row:
-                conn.execute(sa.text('UPDATE users SET is_admin = 1, approved = 1 WHERE id = :uid'), {'uid': row[0]})
+                conn.execute(sa.text('UPDATE users SET is_admin = TRUE, approved = TRUE WHERE id = :uid'), {'uid': row[0]})
                 conn.commit()
                 logger.info(f'User {row[1]} set as admin')
 
