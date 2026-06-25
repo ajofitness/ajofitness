@@ -449,9 +449,13 @@ def sync_google_fit(user, db_session):
             stats['workouts'] += 1
 
         # Daily aggregates: steps, calories, distance, heart_rate
-        steps_data = fetch_aggregate(token, 'com.google.step_count.delta',
-            'derived:com.google.step_count.delta:com.google.android.gms:merge_step_deltas',
-            start_date, today, 'intVal', 'int')
+        steps_data = {}
+        for src in ['derived:com.google.step_count.delta:com.google.android.gms:merge_step_deltas',
+                     'derived:com.google.step_count.delta:com.google.android.gms:estimated_steps']:
+            s = fetch_aggregate(token, 'com.google.step_count.delta', src, start_date, today, 'intVal', 'int')
+            for day, steps in s.items():
+                steps_data[day] = max(steps_data.get(day, 0), steps)
+        logger.info(f'Steps data: {steps_data}')
         calories_data = fetch_aggregate(token, 'com.google.calories.expended',
             'derived:com.google.calories.expended:com.google.android.gms:merge_calories_expended',
             start_date, today, 'fpVal', 'float')
