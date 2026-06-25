@@ -59,20 +59,7 @@
               <i class="bi bi-google"></i> Collega con Google
             </a>
             {% else %}
-            <div class="alert alert-info mb-0">
-              <h5><i class="bi bi-tools"></i> Configurazione necessaria</h5>
-              <p class="mb-2">Per collegare Google Fit devi creare un progetto su Google Cloud Console:</p>
-              <ol class="mb-2 small">
-                <li>Vai su <a href="https://console.cloud.google.com" target="_blank">console.cloud.google.com</a></li>
-                <li>Crea un nuovo progetto o selezionane uno esistente</li>
-                <li>Vai a "API e Servizi" → "Libreria" e abilita <strong>Fitness API</strong></li>
-                <li>Vai a "API e Servizi" → "Credenziali" → "Crea credenziali" → "ID client OAuth"</li>
-                <li>Tipo applicazione: <strong>Applicazione Web</strong></li>
-                <li>URI di reindirizzamento autorizzato: <code>{{ config.GOOGLE_REDIRECT_URI }}</code></li>
-                <li>Copia il <strong>Client ID</strong> e <strong>Client Secret</strong> nel file <code>.env</code></li>
-              </ol>
-              <p class="mb-0 small text-light-50">Dopo aver configurato il .env, ricarica questa pagina.</p>
-            </div>
+            <p class="text-light-50 mb-0"><i class="bi bi-clock"></i> Integrazione Google Fit in arrivo.</p>
             {% endif %}
             <p class="small text-light-50 mt-2 mb-0">
               Autorizza Ajò a leggere i dati del tuo account Google. Non scriveremo mai dati senza il tuo permesso.
