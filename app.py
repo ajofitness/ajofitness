@@ -180,8 +180,7 @@ def create_app():
                 db.session.add(wl)
                 db.session.commit()
 
-            flash('Registrazione completata. Attendi l\'approvazione dell\'amministratore.', 'info')
-            return redirect(url_for('login'))
+            return render_template('registration_done.html')
         return render_template('register.html',
                                activity_options=ACTIVITY_LABELS,
                                deficit_options=DEFICIT_PRESETS)
