@@ -126,84 +126,6 @@ def _date_from_nanos(nanos):
     return _nanos_to_datetime(int(nanos)).date()
 
 
-def list_data_sources(access_token, data_type='com.google.step_count.delta'):
-    """List all available data sources for a given data type."""
-    import logging
-    logger = logging.getLogger('ajo.sync')
-    resp = requests.get(
-        f'{GOOGLE_FIT_BASE}/dataSources',
-        headers=_headers(access_token),
-        params={'dataTypeName': data_type},
-    )
-    if resp.status_code != 200:
-        logger.error(f"Errore listing data sources: {resp.status_code} {resp.text}")
-        return []
-    sources = resp.json().get('dataSource', [])
-    for s in sources:
-        logger.info(f"Data source: {s.get('dataStreamId')} | app: {s.get('application', {}).get('packageName', 'N/A')} | device: {s.get('device', {}).get('model', 'N/A')}")
-    return [s.get('dataStreamId') for s in sources]
-
-
-def fetch_steps(access_token, start_date, end_date):
-    body = {
-        'aggregateBy': [{
-            'dataTypeName': 'com.google.step_count.delta',
-            'dataSourceId': 'derived:com.google.step_count.delta:com.google.android.gms:estimated_steps',
-        }],
-        'bucketByTime': {'durationMillis': 86400000},
-        'startTimeMillis': int(datetime.combine(start_date, datetime.min.time()).timestamp() * 1000),
-        'endTimeMillis': int(datetime.combine(end_date, datetime.max.time()).timestamp() * 1000),
-    }
-    resp = requests.post(
-        f'{GOOGLE_FIT_BASE}/dataset:aggregate',
-        headers=_headers(access_token),
-        json=body,
-    )
-    if resp.status_code != 200:
-        return {}
-    data = resp.json()
-    results = {}
-    for bucket in data.get('bucket', []):
-        day = _date_from_nanos(int(bucket['startTimeMillis']) * 1e6)
-        total = sum(
-            p['value'][0]['intVal']
-            for p in bucket.get('dataset', [{}])[0].get('point', [])
-            if p.get('value') and 'intVal' in p['value'][0]
-        )
-        results[day] = total
-    return results
-
-
-def fetch_calories(access_token, start_date, end_date):
-    body = {
-        'aggregateBy': [{
-            'dataTypeName': 'com.google.calories.expended',
-            'dataSourceId': 'derived:com.google.calories.expended:com.google.android.gms:from_activities',
-        }],
-        'bucketByTime': {'durationMillis': 86400000},
-        'startTimeMillis': int(datetime.combine(start_date, datetime.min.time()).timestamp() * 1000),
-        'endTimeMillis': int(datetime.combine(end_date, datetime.max.time()).timestamp() * 1000),
-    }
-    resp = requests.post(
-        f'{GOOGLE_FIT_BASE}/dataset:aggregate',
-        headers=_headers(access_token),
-        json=body,
-    )
-    if resp.status_code != 200:
-        return {}
-    data = resp.json()
-    results = {}
-    for bucket in data.get('bucket', []):
-        day = _date_from_nanos(int(bucket['startTimeMillis']) * 1e6)
-        total = sum(
-            p['value'][0]['fpVal']
-            for p in bucket.get('dataset', [{}])[0].get('point', [])
-            if p.get('value') and 'fpVal' in p['value'][0]
-        )
-        results[day] = round(total, 0)
-    return results
-
-
 def _find_weight_data_sources(access_token):
     import logging
     logger = logging.getLogger('ajo.sync')
@@ -312,31 +234,6 @@ def fetch_sessions(access_token, start_date, end_date):
         return []
     data = resp.json()
     return data.get('session', [])
-
-
-def fetch_raw_dataset(access_token, data_source, start_date, end_date, val_type='int'):
-    """Fetch raw data points from a data source using the datasets API."""
-    from datetime import datetime as dt
-    start_ns = int(dt.combine(start_date, dt.min.time()).timestamp() * 1e9)
-    end_ns = int(dt.combine(end_date, dt.max.time()).timestamp() * 1e9)
-    resp = requests.get(
-        f'{GOOGLE_FIT_BASE}/dataSources/{data_source}/datasets/{start_ns}-{end_ns}',
-        headers=_headers(access_token),
-    )
-    if resp.status_code != 200:
-        return {}
-    data = resp.json()
-    results = {}
-    for point in data.get('point', []):
-        if not point.get('value') or not point.get('startTimeNanos'):
-            continue
-        day = _date_from_nanos(int(point['startTimeNanos']))
-        if val_type == 'int':
-            v = point['value'][0].get('intVal', 0)
-        else:
-            v = point['value'][0].get('fpVal', 0)
-        results[day] = results.get(day, 0) + v
-    return results
 
 
 def fetch_aggregate(access_token, data_type, data_source, start_date, end_date, val_type='float'):
@@ -496,32 +393,9 @@ def sync_google_fit(user, db_session):
             stats['workouts'] += 1
 
         # Daily aggregates: steps, calories, distance, heart_rate
-        # Query ALL step delta sources individually to identify watch device
-        steps_data = {}
-        for src_param in [None,
-                          'derived:com.google.step_count.delta:com.google.android.gms:merge_step_deltas',
-                          'derived:com.google.step_count.delta:com.google.android.gms:estimated_steps',
-                          'derived:com.google.step_count.delta:com.google.android.gms:Xiaomi:M2007J20CG:b60659ba:derive_step_deltas<-raw:com.google.step_count.cumulative:Xiaomi:M2007J20CG:b60659ba:pedometer  Non-wakeup']:
-            s = fetch_aggregate(token, 'com.google.step_count.delta', src_param, start_date, today, 'int')
-            label = src_param.split(':')[-1].split('<-')[0].strip() if src_param else 'best'
-            if s:
-                logger.info(f'  [{label}] steps: {s}')
-            for day, steps in s.items():
-                steps_data[day] = max(steps_data.get(day, 0), steps)
-        # Also try each top_level source individually
-        for src_param in ['derived:com.google.step_count.delta:com.google.android.fit:Xiaomi:24069PC21G:5a127af9:top_level',
-                          'derived:com.google.step_count.delta:com.google.android.fit:Xiaomi:M2007J20CG:b60659ba:top_level',
-                          'derived:com.google.step_count.delta:com.google.android.fit:Xiaomi:M2007J20CG:ce2f2cc6:top_level',
-                          'derived:com.google.step_count.delta:com.google.android.fit:realme:RMX2170:72a960b:top_level',
-                          'derived:com.google.step_count.delta:com.nike.plusgps:STEP_COUNT_DELTA']:
-            s = fetch_aggregate(token, 'com.google.step_count.delta', src_param, start_date, today, 'int')
-            parts = src_param.split(':')
-            device = parts[4] if len(parts) > 4 else parts[3]
-            if s:
-                logger.info(f'  [{device}] steps: {s}')
-            for day, steps in s.items():
-                steps_data[day] = max(steps_data.get(day, 0), steps)
-        logger.info(f'Steps data final ({len(steps_data)} days): {steps_data}')
+        steps_data = fetch_aggregate(token, 'com.google.step_count.delta',
+            'derived:com.google.step_count.delta:com.google.android.gms:merge_step_deltas',
+            start_date, today, 'int')
         calories_data = fetch_aggregate(token, 'com.google.calories.expended',
             'derived:com.google.calories.expended:com.google.android.gms:merge_calories_expended',
             start_date, today, 'float')
