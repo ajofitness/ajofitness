@@ -92,8 +92,8 @@ def create_app():
 
     @app.template_filter('localtime')
     def to_localtime(dt):
-        from datetime import timezone as dt_tz, timedelta as dt_td
-        if dt and dt.tzinfo is None:
+        from datetime import datetime as dt_mod, timezone as dt_tz, timedelta as dt_td
+        if isinstance(dt, dt_mod) and dt.tzinfo is None:
             return dt.replace(tzinfo=dt_tz.utc).astimezone(dt_tz(dt_td(hours=2)))
         return dt
 
