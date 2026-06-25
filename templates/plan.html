@@ -1,0 +1,234 @@
+{% extends 'base.html' %}
+{% block title %}Il tuo piano - {{ APP_NAME }}{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+  <div class="ft-page-header mb-4">
+    <h1><i class="bi bi-clipboard-check"></i> Il tuo piano personalizzato</h1>
+    <p class="text-light-50 mb-0">Calcolato sui tuoi dati per portarti all'obiettivo in modo sano</p>
+  </div>
+
+  <div class="ft-plan-hero mb-4">
+    <div class="row align-items-center">
+      <div class="col-md-4 text-center">
+        <div class="ft-plan-target">{{ current_user.target_weight_kg }}</div>
+        <div class="ft-plan-target-lbl">kg obiettivo</div>
+      </div>
+      <div class="col-md-8">
+        <h2>{{ plan.target_kcal|round(0) }} kcal al giorno</h2>
+        <p class="mb-2">Deficit di {{ (plan.tdee - plan.target_kcal)|round(0) }} kcal rispetto al tuo fabbisogno ({{ plan.tdee|round(0) }} kcal)</p>
+        <div class="ft-plan-meta">
+          <span><i class="bi bi-arrow-down-circle"></i> {{ plan.weekly_loss_kg }} kg/settimana attesi</span>
+          <span><i class="bi bi-calendar-week"></i> ~{{ weeks_to_target }} settimane all'obiettivo</span>
+          <span><i class="bi bi-person-arms-up"></i> {{ activity_label }}</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="ft-card mb-4">
+    <div class="ft-card-header">
+      <h3><i class="bi bi-sliders"></i> Regola il tuo deficit calorico</h3>
+    </div>
+    <div class="ft-card-body">
+      <form method="post" action="{{ url_for('plan_save_deficit') }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="ft-deficit-options" id="deficitOptions">
+          {% for val, label in deficit_options.items() %}
+          <div class="ft-deficit-opt {% if val == current_deficit %}selected{% endif %}" data-value="{{ val }}" onclick="selectDeficit({{ val }})">
+            <div class="kcal">{{ val }}</div>
+            <div class="label">{{ label|replace(' (-', '<br>(-')|safe }}</div>
+          </div>
+          {% endfor %}
+        </div>
+        <input type="hidden" name="deficit" id="deficitInput" value="{{ current_deficit }}">
+        <button type="submit" class="btn ft-btn-primary mt-3">
+          <i class="bi bi-check-lg"></i> Applica deficit
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <div class="ft-card mb-4">
+    <div class="ft-card-header">
+      <h3><i class="bi bi-palette"></i> Tipo di dieta</h3>
+    </div>
+    <div class="ft-card-body">
+      <form method="post" action="{{ url_for('plan_save_diet') }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="ft-diet-grid mb-3">
+          {% for key, opts in diet_options.items() %}
+          <label class="ft-diet-opt {% if key == current_diet %}selected{% endif %}">
+            <input type="radio" name="diet_type" value="{{ key }}" {% if key == current_diet %}checked{% endif %}
+                   onchange="this.closest('label').classList.add('selected'); this.closest('.ft-diet-grid').querySelectorAll('.ft-diet-opt').forEach(el => el.classList.remove('selected')); this.closest('label').classList.add('selected');">
+            <div class="ft-diet-name">{{ opts.label }}</div>
+          </label>
+          {% endfor %}
+        </div>
+        <div class="d-flex gap-3 mb-3" id="customMacroInputs">
+          <div>
+            <label class="small text-light-50">Proteine %</label>
+            <input type="number" name="protein_pct" id="inputProtein" class="form-control ft-input macro-input" min="5" max="60" step="1"
+                   value="{{ (custom_protein or diet_options[current_diet]['protein_pct'])|int }}"
+                   {% if not custom_protein %}readonly{% endif %}>
+          </div>
+          <div>
+            <label class="small text-light-50">Carboidrati %</label>
+            <input type="number" name="carbs_pct" id="inputCarbs" class="form-control ft-input macro-input" min="5" max="60" step="1"
+                   value="{{ (custom_carbs or diet_options[current_diet]['carbs_pct'])|int }}"
+                   {% if not custom_protein %}readonly{% endif %}>
+          </div>
+          <div>
+            <label class="small text-light-50">Grassi %</label>
+            <input type="number" name="fat_pct" id="inputFat" class="form-control ft-input macro-input" min="5" max="70" step="1"
+                   value="{{ (custom_fat or diet_options[current_diet]['fat_pct'])|int }}"
+                   {% if not custom_protein %}readonly{% endif %}>
+          </div>
+        </div>
+        <div class="mb-3">
+          <label class="form-check-label">
+            <input type="checkbox" name="custom_macros" value="1" class="form-check-input" id="customMacrosCheck"
+                   onchange="document.querySelectorAll('.macro-input').forEach(el => el.readOnly = !this.checked)"
+                   {% if custom_protein %}checked{% endif %}>
+            Personalizza percentuali (sblocca la modifica)
+          </label>
+        </div>
+        <button type="submit" class="btn ft-btn-primary"><i class="bi bi-check-lg"></i> Applica dieta</button>
+      </form>
+    </div>
+  </div>
+
+  <div class="row g-4">
+    <div class="col-lg-6">
+      <div class="ft-card">
+        <div class="ft-card-header">
+          <h3><i class="bi bi-calculator"></i> Calcoli metabolici</h3>
+        </div>
+        <div class="ft-card-body">
+          <div class="ft-calc-row">
+            <div>
+              <div class="ft-calc-lbl">Metabolismo basale (BMR)</div>
+              <div class="ft-calc-hint">Calorie bruciate a riposo</div>
+            </div>
+            <div class="ft-calc-val">{{ plan.bmr|round(0) }} kcal</div>
+          </div>
+          <div class="ft-calc-row">
+            <div>
+              <div class="ft-calc-lbl">Fabbisogno totale (TDEE)</div>
+              <div class="ft-calc-hint">BMR + attività quotidiana</div>
+            </div>
+            <div class="ft-calc-val">{{ plan.tdee|round(0) }} kcal</div>
+          </div>
+          <div class="ft-calc-row highlight">
+            <div>
+              <div class="ft-calc-lbl">Calorie target giornaliere</div>
+              <div class="ft-calc-hint">Deficit {{ (plan.tdee - plan.target_kcal)|round(0) }} kcal</div>
+            </div>
+            <div class="ft-calc-val accent">{{ plan.target_kcal|round(0) }} kcal</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-lg-6">
+      <div class="ft-card">
+        <div class="ft-card-header">
+          <h3><i class="bi bi-pie-chart"></i> Macronutrienti giornalieri</h3>
+          <span class="badge ft-badge">{{ 'Personalizzato' if custom_protein else diet_options[current_diet]['label'] }}</span>
+        </div>
+        <div class="ft-card-body">
+          <div class="ft-macro-big-row">
+            <div class="ft-macro-big protein">
+              <div class="ft-macro-big-num">{{ plan.protein_g }}g</div>
+              <div class="ft-macro-big-lbl">Proteine</div>
+              {% set pct = custom_protein if custom_protein else diet_options[current_diet]['protein_pct'] %}
+              <div class="ft-macro-big-pct">{{ pct|int }}%</div>
+            </div>
+            <div class="ft-macro-big carbs">
+              <div class="ft-macro-big-num">{{ plan.carbs_g }}g</div>
+              <div class="ft-macro-big-lbl">Carboidrati</div>
+              {% set pct = custom_carbs if custom_carbs else diet_options[current_diet]['carbs_pct'] %}
+              <div class="ft-macro-big-pct">{{ pct|int }}%</div>
+            </div>
+            <div class="ft-macro-big fat">
+              <div class="ft-macro-big-num">{{ plan.fat_g }}g</div>
+              <div class="ft-macro-big-lbl">Grassi</div>
+              {% set pct = custom_fat if custom_fat else diet_options[current_diet]['fat_pct'] %}
+              <div class="ft-macro-big-pct">{{ pct|int }}%</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-12">
+      <div class="ft-card">
+        <div class="ft-card-header">
+          <h3><i class="bi bi-list-ol"></i> Fasi del percorso</h3>
+        </div>
+        <div class="ft-card-body p-0">
+          <div class="ft-phase-list">
+            <div class="ft-phase">
+              <div class="ft-phase-num">1</div>
+              <div class="ft-phase-body">
+                <h4>Avvio</h4>
+                <p>Settimane 1-4: il corpo si adatta al nuovo regime. Le calorie restano a {{ plan.target_kcal|round(0) }} kcal.</p>
+              </div>
+            </div>
+            <div class="ft-phase">
+              <div class="ft-phase-num">2</div>
+              <div class="ft-phase-body">
+                <h4>Crociera</h4>
+                <p>Settimane 5-8: dimagrimento regolare. Volume di allenamento in aumento.</p>
+              </div>
+            </div>
+            <div class="ft-phase">
+              <div class="ft-phase-num">3</div>
+              <div class="ft-phase-body">
+                <h4>Spinta</h4>
+                <p>Settimane 9-12: una settimana di refeed a +400 kcal per riattivare la leptina, poi si torna al deficit.</p>
+              </div>
+            </div>
+            <div class="ft-phase">
+              <div class="ft-phase-num">4</div>
+              <div class="ft-phase-body">
+                <h4>Rifinitura</h4>
+                <p>Settimane 13-16: arrivo all'obiettivo. Si consolidano le abitudini per il mantenimento.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+var dietData = {{ diet_options|tojson|safe }};
+
+function selectDeficit(val) {
+  document.getElementById('deficitInput').value = val;
+  document.querySelectorAll('.ft-deficit-opt').forEach(el => {
+    el.classList.toggle('selected', parseInt(el.dataset.value) === val);
+  });
+}
+
+document.querySelectorAll('input[name="diet_type"]').forEach(function(radio) {
+  radio.addEventListener('change', function() {
+    var key = this.value;
+    var data = dietData[key];
+    if (!data) return;
+    document.getElementById('inputProtein').value = data.protein_pct;
+    document.getElementById('inputCarbs').value = data.carbs_pct;
+    document.getElementById('inputFat').value = data.fat_pct;
+    // Lock inputs
+    document.querySelectorAll('.macro-input').forEach(function(el) {
+      el.readOnly = true;
+    });
+    document.getElementById('customMacrosCheck').checked = false;
+  });
+});
+</script>
+{% endblock %}

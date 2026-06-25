@@ -1,0 +1,134 @@
+{% extends 'base.html' %}
+{% block title %}Profilo - {{ APP_NAME }}{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+  <div class="ft-page-header mb-4">
+    <h1><i class="bi bi-person-circle"></i> Profilo</h1>
+    <p class="text-light-50 mb-0">Modifica i tuoi dati personali</p>
+  </div>
+
+  <div class="row g-4">
+    <div class="col-lg-8">
+      <div class="ft-card">
+        <div class="ft-card-header">
+          <h3><i class="bi bi-pencil"></i> Dati anagrafici</h3>
+        </div>
+        <div class="ft-card-body">
+          <form method="post" action="{{ url_for('profile') }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <div class="row">
+              <div class="col-md-6 mb-3">
+                <label class="form-label">Nome</label>
+                <input type="text" name="name" class="form-control ft-input" value="{{ current_user.name }}" required>
+              </div>
+              <div class="col-md-6 mb-3">
+                <label class="form-label">Email</label>
+                <input type="email" class="form-control ft-input" value="{{ current_user.email }}" disabled>
+                <div class="form-text">L'email non può essere modificata.</div>
+              </div>
+            </div>
+            <div class="row">
+              <div class="col-md-4 mb-3">
+                <label class="form-label">Sesso</label>
+                <select name="gender" class="form-select ft-input">
+                  <option value="M" {% if current_user.gender == 'M' %}selected{% endif %}>Uomo</option>
+                  <option value="F" {% if current_user.gender == 'F' %}selected{% endif %}>Donna</option>
+                </select>
+              </div>
+              <div class="col-md-4 mb-3">
+                <label class="form-label">Data di nascita</label>
+                <input type="date" name="birth_date" class="form-control ft-input" required
+                       value="{{ current_user.birth_date.isoformat() }}">
+              </div>
+              <div class="col-md-4 mb-3">
+                <label class="form-label">Età attuale</label>
+                <input type="text" class="form-control ft-input" value="{{ current_user.age }} anni" disabled>
+              </div>
+            </div>
+            <div class="row">
+              <div class="col-md-4 mb-3">
+                <label class="form-label">Altezza (cm)</label>
+                <input type="number" name="height" class="form-control ft-input" required
+                       min="120" max="230" value="{{ current_user.height_cm }}">
+              </div>
+              <div class="col-md-4 mb-3">
+                <label class="form-label">Peso obiettivo (kg)</label>
+                <input type="number" name="target_weight" class="form-control ft-input" required
+                       min="35" max="300" step="0.1" value="{{ current_user.target_weight_kg }}">
+              </div>
+              <div class="col-md-4 mb-3">
+                <label class="form-label">Peso attuale (kg)</label>
+                <input type="text" class="form-control ft-input"
+                       value="{{ current_user.current_weight or 'Non registrato' }}" disabled>
+                <div class="form-text"><a href="{{ url_for('progress') }}" class="ft-link">Aggiorna da Progressi</a></div>
+              </div>
+            </div>
+            <div class="mb-3">
+              <label class="form-label">Livello di attività</label>
+              <select name="activity" class="form-select ft-input">
+                {% for key, label in activity_options.items() %}
+                <option value="{{ key }}" {% if current_user.activity_level == key %}selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <button type="submit" class="btn ft-btn-primary btn-lg">
+              <i class="bi bi-check-lg"></i> Salva modifiche
+            </button>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-lg-4">
+      <div class="ft-card mb-4">
+        <div class="ft-card-header">
+          <h3><i class="bi bi-bar-chart"></i> Riepilogo</h3>
+        </div>
+        <div class="ft-card-body">
+          <div class="ft-summary-row">
+            <span>Account creato</span>
+            <strong>{{ current_user.created_at.strftime('%d/%m/%Y') }}</strong>
+          </div>
+          {% if current_user.current_weight %}
+          <div class="ft-summary-row">
+            <span>Peso attuale</span>
+            <strong>{{ current_user.current_weight }} kg</strong>
+          </div>
+          {% endif %}
+          {% if current_user.starting_weight %}
+          <div class="ft-summary-row">
+            <span>Peso iniziale</span>
+            <strong>{{ current_user.starting_weight }} kg</strong>
+          </div>
+          <div class="ft-summary-row">
+            <span>Peso perso</span>
+            <strong class="text-success">{{ (current_user.starting_weight - current_user.current_weight)|round(1) }} kg</strong>
+          </div>
+          {% endif %}
+          <div class="ft-summary-row">
+            <span>Deficit calorico</span>
+            <strong>{{ current_user.deficit_kcal }} kcal/giorno</strong>
+          </div>
+          <div class="ft-summary-row">
+            <span>BMI attuale</span>
+            <strong>{{ current_user.bmi or 'n/d' }}</strong>
+          </div>
+          <div class="ft-summary-row">
+            <span>Tipo account</span>
+            <strong>{% if current_user.is_demo %}Demo{% else %}Standard{% endif %}</strong>
+          </div>
+        </div>
+      </div>
+
+      <div class="ft-tip-card">
+        <i class="bi bi-shield-lock"></i>
+        <div>
+          <strong>Privacy</strong>
+          <p class="mb-0">I tuoi dati sono privati e non vengono condivisi con terze parti. Puoi esportarli dalla pagina dedicata.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

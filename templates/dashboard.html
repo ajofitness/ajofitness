@@ -1,0 +1,480 @@
+{% extends 'base.html' %}
+{% block title %}Dashboard - {{ APP_NAME }}{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+  <div class="ft-page-header mb-4 d-flex justify-content-between align-items-end flex-wrap gap-2">
+    <div>
+      <h1><i class="bi bi-speedometer2"></i> Ciao {{ current_user.name }}!</h1>
+      <p class="text-light-50 mb-0">{{ date_italian(today()) }}</p>
+    </div>
+    <div class="ft-streak-display {% if streak > 0 %}active{% endif %}" title="Serie di {{ streak }} giorni">
+      <i class="bi bi-fire"></i>
+      <span class="ft-streak-num" id="streakNum">{{ streak }}</span>
+      <span class="ft-streak-label">giorni</span>
+    </div>
+  </div>
+
+{% if new_badges %}
+<div class="ft-badge-alert mb-4" id="badgeAlert">
+  {% for badge in new_badges %}
+  <div class="ft-badge-toast">
+    <span class="ft-badge-icon">{{ badge.icon }}</span>
+    <div>
+      <strong>Badge sbloccato: {{ badge.name }}</strong>
+      <p class="mb-0 small">{{ badge.desc }}</p>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+
+<div class="modal fade" id="badgeCelebrationModal" tabindex="-1" data-bs-backdrop="static">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content ft-modal text-center p-4">
+      <div class="modal-body">
+        <div class="ft-badge-celebration-icon">🎉</div>
+        <h3 class="mt-3">Nuovo badge sbloccato!</h3>
+        {% for badge in new_badges %}
+        <div class="ft-badge-celebration-item mt-3">
+          <span class="ft-badge-celebration-icon-item">{{ badge.icon }}</span>
+          <h4 class="ft-badge-celebration-name">{{ badge.name }}</h4>
+          <p class="text-light-50">{{ badge.desc }}</p>
+        </div>
+        {% endfor %}
+        <button type="button" class="btn ft-btn-primary mt-4" data-bs-dismiss="modal">
+          <i class="bi bi-check-lg"></i> Continua
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+{% endif %}
+
+  <div class="ft-progress-banner mb-4">
+    <div class="row align-items-center">
+      <div class="col-md-4">
+        <div class="ft-progress-label">Progresso verso obiettivo</div>
+        <div class="ft-progress-num">{{ progress_pct }}%</div>
+      </div>
+      <div class="col-md-5">
+        <div class="ft-progress-bar-wrap">
+          <div class="ft-progress-bar-fill" style="width: {{ progress_pct }}%"></div>
+        </div>
+        <div class="d-flex justify-content-between small text-light-50 mt-1">
+          <span>{{ starting_weight }} kg</span>
+          <span>{{ weight }} kg &rarr; {{ current_user.target_weight_kg }} kg</span>
+        </div>
+      </div>
+      <div class="col-md-3 text-md-end">
+        <div class="ft-progress-label">Da perdere</div>
+        <div class="ft-progress-num">{{ (weight - current_user.target_weight_kg)|round(1) }} kg</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="row g-3 mb-4">
+    <div class="col-6 col-lg-2">
+      <div class="ft-stat-card">
+        <div class="ft-stat-card-icon"><i class="bi bi-arrow-down-circle"></i></div>
+        <div class="ft-stat-card-value ft-countup">{{ weight }}</div>
+        <div class="ft-stat-card-unit">kg &middot; peso</div>
+      </div>
+    </div>
+    <div class="col-6 col-lg-2">
+      <div class="ft-stat-card">
+        <div class="ft-stat-card-icon accent"><i class="bi bi-fire"></i></div>
+        <div class="ft-stat-card-value ft-countup">{{ macros_today.kcal|round(0) }}</div>
+        <div class="ft-stat-card-unit">kcal assunte</div>
+      </div>
+    </div>
+    <div class="col-6 col-lg-2">
+      <div class="ft-stat-card">
+        <div class="ft-stat-card-icon success"><i class="bi bi-lightning"></i></div>
+        <div class="ft-stat-card-value ft-countup">{{ kcal_burned_today|round(0) }}</div>
+        <div class="ft-stat-card-unit">kcal bruciate</div>
+      </div>
+    </div>
+    <div class="col-6 col-lg-2">
+      <div class="ft-stat-card">
+        <div class="ft-stat-card-icon warn"><i class="bi bi-droplet"></i></div>
+        <div class="ft-stat-card-value ft-countup">{{ (total_water_ml / 1000)|round(1) }}</div>
+        <div class="ft-stat-card-unit">litri &middot; acqua</div>
+      </div>
+    </div>
+    <div class="col-6 col-lg-2">
+      <div class="ft-stat-card">
+        <div class="ft-stat-card-icon" style="color:var(--info)"><i class="bi bi-person"></i></div>
+        <div class="ft-stat-card-value ft-countup">{{ body_fat }}</div>
+        <div class="ft-stat-card-unit">% &middot; grasso stim.</div>
+      </div>
+    </div>
+    <div class="col-6 col-lg-2">
+      <div class="ft-stat-card">
+        <div class="ft-stat-card-icon" style="color:var(--warning)"><i class="bi bi-arrow-left-right"></i></div>
+        <div class="ft-stat-card-value ft-countup">{{ kcal_net|round(0) }}</div>
+        <div class="ft-stat-card-unit">kcal nette</div>
+      </div>
+    </div>
+    <div class="col-6 col-lg-2">
+      <div class="ft-stat-card">
+        <div class="ft-stat-card-icon success"><i class="bi bi-trophy"></i></div>
+        <div class="ft-stat-card-value ft-countup">{{ badge_details|length }}</div>
+        <div class="ft-stat-card-unit">badge ottenuti</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="row g-4">
+    <div class="col-lg-8">
+      <div class="ft-card mb-4">
+        <div class="ft-card-header">
+          <h3><i class="bi bi-pie-chart"></i> Macronutrienti di oggi</h3>
+          <span class="badge ft-badge">{{ macros_today.kcal|round(0) }} / {{ plan.target_kcal|round(0) }} kcal</span>
+        </div>
+        <div class="ft-card-body">
+          <div class="row text-center">
+            <div class="col-4">
+              <div class="ft-macro-ring">
+                <div class="ft-macro-num ft-countup">{{ macros_today.protein|round(0) }}g</div>
+                <div class="ft-macro-lbl">Proteine</div>
+                <div class="ft-macro-target">/ {{ plan.protein_g|round(0) }}g</div>
+              </div>
+            </div>
+            <div class="col-4">
+              <div class="ft-macro-ring">
+                <div class="ft-macro-num ft-countup">{{ macros_today.carbs|round(0) }}g</div>
+                <div class="ft-macro-lbl">Carboidrati</div>
+                <div class="ft-macro-target">/ {{ plan.carbs_g|round(0) }}g</div>
+              </div>
+            </div>
+            <div class="col-4">
+              <div class="ft-macro-ring">
+                <div class="ft-macro-num ft-countup">{{ macros_today.fat|round(0) }}g</div>
+                <div class="ft-macro-lbl">Grassi</div>
+                <div class="ft-macro-target">/ {{ plan.fat_g|round(0) }}g</div>
+              </div>
+            </div>
+          </div>
+          <div class="mt-3">
+            <div class="d-flex justify-content-between mb-1 small">
+              <span>Calorie totali</span>
+              <span>{{ macros_today.kcal|round(0) }} / {{ plan.target_kcal|round(0) }} kcal</span>
+            </div>
+            <div class="ft-bar-progress">
+              <div class="ft-bar-progress-fill" style="width: {{ (macros_today.kcal / plan.target_kcal * 100)|round(0) if plan.target_kcal else 0 }}%"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {% if recent_loss_rate is not none and adapted_plan and adapted_plan.deficit_used != plan.deficit_used %}
+      <div class="ft-card mb-4 ft-adapt-card">
+        <div class="ft-card-header">
+          <h3><i class="bi bi-robot"></i> Piano Adattivo</h3>
+          <span class="badge ft-badge">AI</span>
+        </div>
+        <div class="ft-card-body">
+          <p class="mb-2">
+            Negli ultimi 14 giorni stai perdendo <strong>{{ "%.2f"|format(recent_loss_rate) }} kg/settimana</strong>
+            (previsto: {{ "%.2f"|format(plan.weekly_loss_kg) }} kg/settimana).
+            {% if recent_loss_rate < plan.weekly_loss_kg * 0.8 %}
+            Il ritmo è più lento del previsto. Deficit suggerito: <strong>{{ adapted_plan.deficit_used }} kcal/giorno</strong>.
+            {% elif recent_loss_rate > plan.weekly_loss_kg * 1.2 %}
+            Stai perdendo più velocemente del previsto. Deficit suggerito: <strong>{{ adapted_plan.deficit_used }} kcal/giorno</strong>.
+            {% endif %}
+          </p>
+          <a href="{{ url_for('plan', deficit=adapted_plan.deficit_used) }}" class="btn ft-btn-outline btn-sm">
+            <i class="bi bi-arrow-right"></i> Applica aggiustamento
+          </a>
+        </div>
+      </div>
+      {% endif %}
+
+      <div class="ft-card mb-4">
+        <div class="ft-card-header">
+          <h3><i class="bi bi-droplet"></i> Acqua oggi</h3>
+          <span class="ft-water-total">{{ total_water_ml }} / 2000 ml</span>
+        </div>
+        <div class="ft-card-body">
+          <div class="ft-water-tracker" id="waterTracker">
+            {% for i in range(total_water_ml // 250) %}
+            <div class="ft-water-glass filled" style="animation-delay: {{ i * 0.05 }}s"></div>
+            {% endfor %}
+            {% for i in range((2000 - total_water_ml) // 250) %}
+            <div class="ft-water-glass"></div>
+            {% endfor %}
+          </div>
+          <form method="post" action="{{ url_for('water_add') }}" class="mt-3 d-flex gap-2">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <select name="amount_ml" class="form-select ft-input" style="width: auto;">
+              <option value="200">200 ml</option>
+              <option value="250" selected>250 ml</option>
+              <option value="300">300 ml</option>
+              <option value="500">500 ml</option>
+            </select>
+            <button type="submit" class="btn ft-btn-primary"><i class="bi bi-plus-lg"></i> Aggiungi</button>
+          </form>
+        </div>
+      </div>
+
+      <div class="ft-card">
+        <div class="ft-card-header">
+          <h3><i class="bi bi-graph-up-arrow"></i> Andamento peso (ultimi 7 giorni)</h3>
+          <a href="{{ url_for('progress') }}" class="ft-link-small">Vedi tutto &rarr;</a>
+        </div>
+        <div class="ft-card-body">
+          {% if weight_history|length >= 2 %}
+          <canvas id="weightChart" height="100"></canvas>
+          {% else %}
+          <div class="ft-empty-state">
+            <i class="bi bi-graph-up"></i>
+            <p>Registra il peso per almeno 2 giorni per vedere il grafico.</p>
+            <a href="{{ url_for('progress') }}" class="btn ft-btn-outline btn-sm">Aggiungi peso</a>
+          </div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+
+    <div class="col-lg-4">
+      <div class="ft-card mb-4">
+        <div class="ft-card-header">
+          <h3><i class="bi bi-info-circle"></i> Corpo</h3>
+        </div>
+        <div class="ft-card-body">
+          <div class="text-center">
+            <div class="ft-bmi-display">{{ bmi }}</div>
+            <div class="ft-bmi-category">{{ bmi_cat }}</div>
+          </div>
+          <div class="ft-bmi-scale mt-2">
+            <div class="ft-bmi-scale-bar">
+              <div class="ft-bmi-marker" style="left: {{ ((bmi - 15) / 25 * 100)|round(0) if bmi else 30 }}%"></div>
+            </div>
+            <div class="d-flex justify-content-between small text-light-50 mt-1">
+              <span>15</span><span>18.5</span><span>25</span><span>30</span><span>40</span>
+            </div>
+          </div>
+          <div class="mt-3 pt-3 border-top border-secondary">
+            <div class="d-flex justify-content-between small">
+              <span class="text-light-50">Grasso corporeo stimato</span>
+              <strong>{{ body_fat }}%</strong>
+            </div>
+            <div class="d-flex justify-content-between small mt-1">
+              <span class="text-light-50">Massa magra stimata</span>
+              <strong>{{ (weight * (100 - body_fat) / 100)|round(1) }} kg</strong>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="ft-card mb-4">
+        <div class="ft-card-header">
+          <h3><i class="bi bi-trophy"></i> Badge</h3>
+          <a href="{{ url_for('goals') }}" class="ft-link-small">Vedi tutti</a>
+        </div>
+        <div class="ft-card-body">
+          {% if badge_details %}
+          <div class="ft-badge-grid">
+            {% for badge in badge_details[:6] %}
+            <div class="ft-badge-item" title="{{ badge.desc }}">
+              <span class="ft-badge-icon">{{ badge.icon }}</span>
+              <span class="ft-badge-name">{{ badge.name }}</span>
+            </div>
+            {% endfor %}
+          </div>
+          {% if badge_details|length > 6 %}
+          <p class="small text-light-50 text-center mt-2">+{{ badge_details|length - 6 }} altri badge</p>
+          {% endif %}
+          {% else %}
+          <p class="text-light-50 small mb-0 text-center">Inizia a usare l'app per sbloccare i primi badge!</p>
+          {% endif %}
+        </div>
+      </div>
+
+      <div class="ft-card mb-4">
+        <div class="ft-card-header">
+          <h3><i class="bi bi-chat-quote"></i> Coach</h3>
+          <a href="{{ url_for('coach') }}" class="ft-link-small">Vedi tutti</a>
+        </div>
+        <div class="ft-card-body">
+          {% if coach_messages %}
+          {% set top = coach_messages[0] %}
+          <div class="d-flex align-items-start gap-2">
+            <span class="fs-3">{{ top.icon }}</span>
+            <div>
+              <strong class="d-block">{{ top.title }}</strong>
+              <p class="mb-0 small text-light-50">{{ top.body }}</p>
+            </div>
+          </div>
+          <hr class="border-secondary my-2">
+          <p class="small text-light-50 mb-0 text-center">
+            <a href="{{ url_for('coach') }}" class="text-decoration-none">{{ coach_messages|length }} messaggi oggi</a>
+          </p>
+          {% else %}
+          <p class="text-light-50 small mb-0 text-center">Nessun messaggio per ora.</p>
+          {% endif %}
+        </div>
+      </div>
+
+      {% if active_enrollment %}
+      <div class="ft-card mb-4" style="border-left: 4px solid {{ active_enrollment.program.color or '#ff6b35' }};">
+        <div class="ft-card-header">
+          <h3><i class="bi {{ active_enrollment.program.icon or 'bi-collection-play' }}"></i> {{ active_enrollment.program.name }}</h3>
+          <a href="{{ url_for('program_my') }}" class="ft-link-small">Dettagli</a>
+        </div>
+        <div class="ft-card-body">
+          <div class="d-flex justify-content-between small mb-1">
+            <span>Giorno {{ active_enrollment.current_day }}/{{ active_enrollment.program.duration_days }}</span>
+            <span>{{ (active_enrollment.current_day / active_enrollment.program.duration_days * 100)|round(0) }}%</span>
+          </div>
+          <div class="ft-progress-bar-wrap" style="height: 8px;">
+            <div class="ft-progress-bar-fill" style="width: {{ (active_enrollment.current_day / active_enrollment.program.duration_days * 100)|round(0) if active_enrollment.program.duration_days else 0 }}%; background: {{ active_enrollment.program.color or '#ff6b35' }};"></div>
+          </div>
+          <a href="{{ url_for('program_my') }}" class="btn ft-btn-outline btn-sm w-100 mt-2">
+            <i class="bi bi-arrow-right"></i> Checklist oggi
+          </a>
+        </div>
+      </div>
+      {% endif %}
+
+      <div class="ft-card mb-4">
+        <div class="ft-card-header">
+          <h3><i class="bi bi-trophy"></i> Obiettivo settimana</h3>
+          <a href="{{ url_for('goals') }}" class="ft-link-small">Gestisci</a>
+        </div>
+        <div class="ft-card-body">
+          {% if weekly_goal %}
+          <div class="ft-goal-type">{{ weekly_goal.goal_type|replace('_', ' ') }}</div>
+          <div class="ft-goal-progress-text">{{ weekly_goal.current|round(0) }} / {{ weekly_goal.target|round(0) }}</div>
+          <div class="ft-goal-bar mt-2">
+            <div class="ft-goal-bar-fill" style="width: {{ (weekly_goal.current / weekly_goal.target * 100) if weekly_goal.current <= weekly_goal.target else 100 }}%"></div>
+          </div>
+          {% else %}
+          <p class="text-light-50 small mb-0">Nessun obiettivo attivo.</p>
+          {% endif %}
+        </div>
+      </div>
+
+      {% if current_user.google_access_token %}
+      <div class="ft-card mb-4">
+        <div class="card-body py-2">
+          <div class="d-flex align-items-center justify-content-between">
+            <div class="d-flex align-items-center gap-2">
+              <i class="bi bi-google text-success"></i>
+              <span class="small">Google Fit</span>
+              {% if current_user.last_sync_at %}
+              <span class="small text-light-50">({{ current_user.last_sync_at.strftime('%H:%M') }})</span>
+              {% endif %}
+            </div>
+            <form method="post" action="{{ url_for('sync_google_fit_route') }}" class="m-0">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+              <button type="submit" class="btn btn-sm ft-btn-outline py-0 px-2">
+                <i class="bi bi-arrow-repeat"></i>
+              </button>
+            </form>
+          </div>
+        </div>
+      </div>
+      {% endif %}
+
+      <div class="ft-card">
+        <div class="ft-card-header">
+          <h3><i class="bi bi-calendar-week"></i> Azioni rapide</h3>
+        </div>
+        <div class="ft-card-body">
+          <ul class="ft-checklist">
+            <li><a href="{{ url_for('diary') }}"><i class="bi bi-journal-plus"></i> Registra pasti</a></li>
+            <li><a href="{{ url_for('training') }}"><i class="bi bi-bicycle"></i> Aggiungi allenamento</a></li>
+            <li><a href="{{ url_for('progress') }}"><i class="bi bi-arrow-down-circle"></i> Registra peso</a></li>
+            <li><a href="{{ url_for('plan') }}"><i class="bi bi-clipboard-check"></i> Rivedi piano</a></li>
+            <li><a href="{{ url_for('photos') }}"><i class="bi bi-camera"></i> Foto progresso</a></li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="ft-tip-card mt-4">
+        <i class="bi bi-lightbulb"></i>
+        <div>
+          <strong>{% if streak >= 7 %}Sei in fiamme! 🔥{% elif streak >= 3 %}Ottimo ritmo!{% else %}Consiglio del giorno{% endif %}</strong>
+          <p>
+            {%- if streak >= 30 -%}
+            30 giorni di fila! Sei una leggenda. Continua così!
+            {%- elif streak >= 14 -%}
+            Due settimane di fila! Le abitudini stanno diventando automatiche.
+            {%- elif streak >= 7 -%}
+            7 giorni consecutivi! Hai superato la fase critica.
+            {%- elif streak >= 3 -%}
+            3 giorni di fila è un ottimo inizio. Arriva a 7!
+            {%- else -%}
+            Bere 2 litri d'acqua al giorno aumenta il metabolismo del 24-30%.
+            {%- endif -%}
+          </p>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+{% if new_badges %}
+<script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  var modal = new bootstrap.Modal(document.getElementById('badgeCelebrationModal'));
+  modal.show();
+  modal._element.addEventListener('shown.bs.modal', function() {
+    var duration = 2000;
+    var end = Date.now() + duration;
+    (function frame() {
+      confetti({ particleCount: 3, spread: 60, origin: { y: 0.6 }, colors: ['#ff6b35', '#ff8555', '#ffa500'] });
+      if (Date.now() < end) requestAnimationFrame(frame);
+    })();
+    setTimeout(function() {
+      confetti({ particleCount: 50, spread: 100, origin: { y: 0.5 } });
+    }, 300);
+  });
+});
+</script>
+{% endif %}
+{% if weight_history|length >= 2 %}
+<script>
+const ctx = document.getElementById('weightChart');
+if (ctx) {
+  const labels = [{% for log in weight_history %}"{{ log.date.strftime('%d/%m') }}"{% if not loop.last %},{% endif %}{% endfor %}];
+  const data = [{% for log in weight_history %}{{ log.weight }}{% if not loop.last %},{% endif %}{% endfor %}];
+  new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: labels,
+      datasets: [{
+        label: 'Peso (kg)',
+        data: data,
+        borderColor: '#ff6b35',
+        backgroundColor: 'rgba(255, 107, 53, 0.15)',
+        borderWidth: 3,
+        fill: true,
+        tension: 0.3,
+        pointBackgroundColor: '#ff6b35',
+        pointBorderColor: '#fff',
+        pointBorderWidth: 2,
+        pointRadius: 5,
+        pointHoverRadius: 7,
+      }]
+    },
+    options: {
+      responsive: true,
+      plugins: {
+        legend: { display: false },
+        tooltip: { backgroundColor: '#1a1a1a', titleColor: '#fff', bodyColor: '#fff', padding: 12 }
+      },
+      scales: {
+        y: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#888' } },
+        x: { grid: { display: false }, ticks: { color: '#888' } }
+      }
+    }
+  });
+}
+</script>
+{% endif %}
+{% endblock %}

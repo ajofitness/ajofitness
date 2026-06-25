@@ -1,0 +1,203 @@
+{% extends 'base.html' %}
+{% block title %}Allenamenti - {{ APP_NAME }}{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+  <div class="ft-page-header mb-4 d-flex justify-content-between align-items-end flex-wrap gap-2">
+    <div>
+      <h1><i class="bi bi-bicycle"></i> Allenamenti</h1>
+      <p class="text-light-50 mb-0">{{ date_italian(selected_date) }}</p>
+    </div>
+    <div class="ft-date-nav">
+      <a href="{{ url_for('training', date=prev_date.isoformat()) }}" class="btn ft-btn-outline btn-sm"><i class="bi bi-chevron-left"></i></a>
+      <span class="ft-date-current">{{ selected_date.strftime('%d/%m/%Y') }}</span>
+      {% if selected_date.isoformat() < today_str %}
+      <a href="{{ url_for('training', date=next_date.isoformat()) }}" class="btn ft-btn-outline btn-sm"><i class="bi bi-chevron-right"></i></a>
+      {% else %}
+      <button class="btn ft-btn-outline btn-sm" disabled><i class="bi bi-chevron-right"></i></button>
+      {% endif %}
+      {% if selected_date.isoformat() != today_str %}
+      <a href="{{ url_for('training') }}" class="btn ft-btn-outline btn-sm ms-2">Oggi</a>
+      {% endif %}
+    </div>
+  </div>
+
+  <div class="row g-4">
+    <div class="col-lg-7">
+      <div class="ft-card mb-4">
+        <div class="ft-card-header">
+          <h3><i class="bi bi-card-list"></i> Allenamenti del giorno</h3>
+          <span class="badge ft-badge">{{ workouts|length }} sessioni</span>
+        </div>
+        <div class="ft-card-body p-0">
+          {% if workouts %}
+          <div class="ft-workout-list">
+            {% for w in workouts %}
+            <div class="ft-workout-item">
+              <div class="ft-workout-icon"><i class="bi bi-lightning"></i></div>
+              <div class="ft-workout-info">
+                <div class="ft-workout-name">{{ activities.get(w.activity_type, w.activity_type) }}</div>
+                <div class="ft-workout-meta">
+                  {{ w.duration_min }} min
+                  {% if w.distance_km %} &middot; {{ w.distance_km }} km{% endif %}
+                  &middot; <span class="text-capitalize">{{ w.intensity }}</span>
+                  {% if w.note %}<br><em>"{{ w.note }}"</em>{% endif %}
+                </div>
+              </div>
+              <div class="ft-workout-burn">
+                <div class="ft-workout-kcal">{{ w.calories_burned|round(0) }}</div>
+                <div class="ft-workout-lbl">kcal</div>
+              </div>
+              <form method="post" action="{{ url_for('training_delete', wo_id=w.id) }}"
+                    onsubmit="return confirm('Eliminare questo allenamento?');">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <button type="submit" class="btn ft-btn-icon-danger"><i class="bi bi-trash"></i></button>
+              </form>
+            </div>
+            {% endfor %}
+          </div>
+          {% else %}
+          <div class="ft-empty-state">
+            <i class="bi bi-emoji-neutral"></i>
+            <p>Nessun allenamento registrato oggi.</p>
+          </div>
+          {% endif %}
+        </div>
+      </div>
+
+      <div class="ft-card">
+        <div class="ft-card-header">
+          <h3><i class="bi bi-bar-chart"></i> Calorie bruciate (30 giorni)</h3>
+        </div>
+        <div class="ft-card-body">
+          {% if history %}
+          <canvas id="workoutChart" height="100"></canvas>
+          {% else %}
+          <div class="ft-empty-state">
+            <i class="bi bi-graph-up"></i>
+            <p>Registra il primo allenamento per vedere il grafico.</p>
+          </div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+
+    <div class="col-lg-5">
+      <div class="ft-card ft-sticky">
+        <div class="ft-card-header">
+          <h3><i class="bi bi-plus-circle"></i> Aggiungi allenamento</h3>
+        </div>
+        <div class="ft-card-body">
+          <form method="post" action="{{ url_for('training_add') }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <input type="hidden" name="date" value="{{ selected_date.isoformat() }}">
+            <div class="mb-3">
+              <label class="form-label">Tipo di attività</label>
+              <select name="activity_type" class="form-select ft-input" id="activity_select">
+                {% for key, label in activities.items() %}
+                <option value="{{ key }}">{{ label }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="row">
+              <div class="col-6 mb-3">
+                <label class="form-label">Durata (min)</label>
+                <input type="number" name="duration_min" class="form-control ft-input" required
+                       min="1" max="600" value="30">
+              </div>
+              <div class="col-6 mb-3">
+                <label class="form-label">Distanza (km) <small class="text-light-50">opz.</small></label>
+                <input type="number" name="distance_km" class="form-control ft-input"
+                       min="0" max="200" step="0.1" value="0">
+              </div>
+            </div>
+            <div class="mb-3">
+              <label class="form-label">Intensità</label>
+              <select name="intensity" class="form-select ft-input">
+                <option value="easy">Leggera</option>
+                <option value="moderate" selected>Moderata</option>
+                <option value="hard">Intensa</option>
+              </select>
+            </div>
+            <div class="mb-3">
+              <label class="form-label">Note <small class="text-light-50">opz.</small></label>
+              <textarea name="note" rows="2" class="form-control ft-input"
+                        placeholder="Sensazione, percorso, meteo..."></textarea>
+            </div>
+            <div class="ft-est-box">
+              <i class="bi bi-fire"></i>
+              <div>
+                <div class="small text-light-50">Calorie stimate</div>
+                <div class="ft-est-num" id="est_kcal">~ 200 kcal</div>
+              </div>
+            </div>
+            <button type="submit" class="btn ft-btn-primary w-100 btn-lg mt-3">
+              <i class="bi bi-check-lg"></i> Registra allenamento
+            </button>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+{% if history %}
+<script>
+const workoutByDate = {};
+{% for w in history %}
+const d = "{{ w.date.isoformat() }}";
+if (!workoutByDate[d]) workoutByDate[d] = 0;
+workoutByDate[d] += {{ w.calories_burned }};
+{% endfor %}
+const sortedDates = Object.keys(workoutByDate).sort();
+const labels = sortedDates.map(d => d.slice(8,10) + '/' + d.slice(5,7));
+const data = sortedDates.map(d => Math.round(workoutByDate[d]));
+new Chart(document.getElementById('workoutChart'), {
+  type: 'bar',
+  data: {
+    labels: labels,
+    datasets: [{
+      label: 'kcal bruciate',
+      data: data,
+      backgroundColor: '#ff6b35',
+      borderRadius: 6,
+    }]
+  },
+  options: {
+    responsive: true,
+    plugins: {
+      legend: { display: false },
+      tooltip: { backgroundColor: '#1a1a1a', callbacks: { label: c => c.parsed.y + ' kcal' } }
+    },
+    scales: {
+      y: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#888' } },
+      x: { grid: { display: false }, ticks: { color: '#888' } }
+    }
+  }
+});
+</script>
+{% endif %}
+<script>
+const weight = {{ current_user.current_weight or 80 }};
+const mets = {
+  {% for key, val in [('running_easy',9.8), ('running_moderate',11.0), ('running_fast',13.5),
+                      ('cycling_moderate',7.5), ('cycling_easy',5.0), ('swimming_moderate',8.0),
+                      ('walking_brisk',5.0), ('walking_easy',3.5), ('strength',6.0), ('hiit',8.0),
+                      ('yoga',3.0), ('rowing',8.5), ('elliptical',5.0)] %}
+  '{{ key }}': {{ val }}{% if not loop.last %},{% endif %}
+  {% endfor %}
+};
+function updateEstimate() {
+  const act = document.getElementById('activity_select').value;
+  const dur = parseInt(document.querySelector('[name=duration_min]').value) || 0;
+  const met = mets[act] || 6;
+  const kcal = Math.round(met * weight * (dur/60));
+  document.getElementById('est_kcal').textContent = '~ ' + kcal + ' kcal';
+}
+document.getElementById('activity_select').addEventListener('change', updateEstimate);
+document.querySelector('[name=duration_min]').addEventListener('input', updateEstimate);
+updateEstimate();
+</script>
+{% endblock %}

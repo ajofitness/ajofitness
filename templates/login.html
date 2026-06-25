@@ -1,0 +1,45 @@
+{% extends 'base.html' %}
+{% block title %}Accedi - {{ APP_NAME }}{% endblock %}
+
+{% block content %}
+<div class="ft-auth-page">
+  <div class="container">
+    <div class="row justify-content-center">
+      <div class="col-md-6 col-lg-5">
+        <div class="ft-auth-card">
+          <div class="ft-auth-header">
+            <a href="{{ url_for('index') }}" class="ft-brand-link">
+              <i class="bi bi-lightning-charge-fill"></i> {{ APP_NAME }}
+            </a>
+            <h2>Bentornato!</h2>
+            <p>Accedi al tuo account per continuare il percorso.</p>
+          </div>
+          <form method="post" action="{{ url_for('login') }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <div class="mb-3">
+              <label class="form-label">Email</label>
+              <input type="email" name="email" class="form-control ft-input" required autofocus
+                     placeholder="tu@esempio.it">
+            </div>
+            <div class="mb-3">
+              <label class="form-label">Password</label>
+              <input type="password" name="password" class="form-control ft-input" required
+                     placeholder="La tua password">
+            </div>
+            <button type="submit" class="btn ft-btn-primary w-100 btn-lg">
+              <i class="bi bi-box-arrow-in-right"></i> Accedi
+            </button>
+          </form>
+          <hr class="ft-divider">
+          <a href="{{ url_for('login_demo') }}" class="btn ft-btn-outline w-100 mb-3">
+            <i class="bi bi-play-circle"></i> Prova come utente DEMO
+          </a>
+          <p class="text-center mb-0 text-light-50">
+            Non hai un account? <a href="{{ url_for('register') }}" class="ft-link">Registrati gratis</a>
+          </p>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,141 @@
+{% extends 'base.html' %}
+{% block title %}Foto Progresso - {{ APP_NAME }}{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+  <div class="ft-page-header mb-4 d-flex justify-content-between align-items-end flex-wrap gap-2">
+    <div>
+      <h1><i class="bi bi-camera"></i> Foto Progresso</h1>
+      <p class="text-light-50 mb-0">Confronta la tua trasformazione nel tempo</p>
+    </div>
+    <button class="btn ft-btn-primary" data-bs-toggle="modal" data-bs-target="#uploadModal">
+      <i class="bi bi-plus-lg"></i> Nuove foto
+    </button>
+  </div>
+
+  <div class="row g-4">
+    {% for photo in photos %}
+    <div class="col-12 col-md-6 col-lg-4">
+      <div class="ft-photo-card">
+        <div class="ft-photo-date">{{ date_italian(photo.date) }}</div>
+        <div class="ft-photo-images">
+          {% if photo.photo_front %}
+          <div class="ft-photo-thumb">
+            <img src="{{ url_for('static', filename=photo.photo_front) }}" alt="Vista frontale {{ photo.date }}" loading="lazy">
+            <span class="ft-photo-label">Frontale</span>
+          </div>
+          {% endif %}
+          {% if photo.photo_side %}
+          <div class="ft-photo-thumb">
+            <img src="{{ url_for('static', filename=photo.photo_side) }}" alt="Vista laterale {{ photo.date }}" loading="lazy">
+            <span class="ft-photo-label">Laterale</span>
+          </div>
+          {% endif %}
+          {% if not photo.photo_front and not photo.photo_side %}
+          <div class="ft-empty-state">
+            <i class="bi bi-camera-off"></i>
+            <p>Nessuna foto</p>
+          </div>
+          {% endif %}
+        </div>
+        <form method="post" action="{{ url_for('photos_delete', photo_id=photo.id) }}" class="mt-2 text-end"
+              onsubmit="return confirm('Eliminare le foto del {{ photo.date.strftime('%d/%m/%Y') }}?')">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <button type="submit" class="btn btn-sm btn-outline-danger"><i class="bi bi-trash"></i></button>
+        </form>
+      </div>
+    </div>
+    {% else %}
+    <div class="col-12">
+      <div class="ft-empty-state">
+        <i class="bi bi-camera" style="font-size: 3rem;"></i>
+        <h3>Nessuna foto ancora</h3>
+        <p>Scatta foto frontali e laterali per monitorare i tuoi progressi visivi.</p>
+        <button class="btn ft-btn-primary" data-bs-toggle="modal" data-bs-target="#uploadModal">
+          <i class="bi bi-plus-lg"></i> Carica le prime foto
+        </button>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+
+  {% if photos|length >= 2 %}
+  <div class="ft-card mt-5">
+    <div class="ft-card-header">
+      <h3><i class="bi bi-arrow-left-right"></i> Confronto prima/dopo</h3>
+    </div>
+    <div class="ft-card-body">
+      <form class="row g-3 align-items-end" method="get">
+        <div class="col-md-4">
+          <label class="form-label small text-light-50">Prima foto</label>
+          <select name="before" class="form-select ft-input">
+            {% for photo in photos %}
+            <option value="{{ photo.id }}" {% if request.args.get('before')|string == photo.id|string %}selected{% endif %}>
+              {{ photo.date.strftime('%d/%m/%Y') }}
+            </option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="col-md-4">
+          <label class="form-label small text-light-50">Dopo foto</label>
+          <select name="after" class="form-select ft-input">
+            {% for photo in photos %}
+            <option value="{{ photo.id }}" {% if request.args.get('after')|string == photo.id|string %}selected{% endif %}>
+              {{ photo.date.strftime('%d/%m/%Y') }}
+            </option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="col-md-4">
+          <button type="submit" class="btn ft-btn-primary w-100"><i class="bi bi-eye"></i> Confronta</button>
+        </div>
+      </form>
+      {% set before_id = request.args.get('before', '')|string %}
+      {% set after_id = request.args.get('after', '')|string %}
+      {% if before_id and after_id and before_id != after_id %}
+      {% set before_photo = photos|selectattr('id', 'equalto', before_id|int)|first %}
+      {% set after_photo = photos|selectattr('id', 'equalto', after_id|int)|first %}
+      {% if before_photo and after_photo and before_photo.photo_front and after_photo.photo_front %}
+      <div class="ft-compare-container mt-4">
+        <img-comparison-slider>
+          <figure slot="first" class="ft-compare-figure">
+            <img src="{{ url_for('static', filename=before_photo.photo_front) }}" alt="Prima" loading="lazy">
+            <figcaption class="ft-compare-label before">{{ before_photo.date.strftime('%d/%m/%Y') }}</figcaption>
+          </figure>
+          <figure slot="second" class="ft-compare-figure">
+            <img src="{{ url_for('static', filename=after_photo.photo_front) }}" alt="Dopo" loading="lazy">
+            <figcaption class="ft-compare-label after">{{ after_photo.date.strftime('%d/%m/%Y') }}</figcaption>
+          </figure>
+        </img-comparison-slider>
+      </div>
+      {% endif %}
+      {% endif %}
+    </div>
+  </div>
+  {% endif %}
+</div>
+
+{% include '_photo_upload_modal.html' %}
+{% endblock %}
+
+{% block extra_scripts %}
+<script defer src="https://cdn.jsdelivr.net/npm/img-comparison-slider@8/dist/index.js"></script>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/img-comparison-slider@8/dist/styles.css">
+<style>
+img-comparison-slider {
+  --divider-color: var(--accent);
+  --divider-width: 3px;
+  --handle-position: 50%;
+  width: 100%;
+  border-radius: 12px;
+  overflow: hidden;
+}
+.ft-compare-figure {
+  margin: 0; display: flex; align-items: center; justify-content: center;
+  height: 100%; width: 100%;
+}
+.ft-compare-figure img {
+  display: block; width: 100%; height: auto; object-fit: contain;
+}
+</style>
+{% endblock %}

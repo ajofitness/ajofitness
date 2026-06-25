@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+{% block title %}{{ APP_NAME }} - Coach{% endblock %}
+{% block content %}
+<div class="container py-4">
+  <div class="d-flex align-items-center gap-3 mb-4">
+    <div class="ft-icon-circle bg-gradient-soft">
+      <i class="bi bi-chat-quote fs-2"></i>
+    </div>
+    <div>
+      <h1 class="fw-bold mb-0">Coach comportamentale</h1>
+      <p class="text-light-50 mb-0">Messaggi personalizzati in base ai tuoi dati</p>
+    </div>
+  </div>
+
+  {% if messages %}
+    {% for msg in messages %}
+    <div class="card ft-card mb-3 border-{{ 'danger' if msg.priority == 'high' else 'warning' if msg.priority == 'normal' else 'secondary' }}">
+      <div class="card-body">
+        <div class="d-flex align-items-start gap-3">
+          <span class="fs-1">{{ msg.icon }}</span>
+          <div class="flex-grow-1">
+            <div class="d-flex align-items-center gap-2 mb-1">
+              <strong class="fs-5">{{ msg.title }}</strong>
+              {% if msg.priority == 'high' %}
+              <span class="badge bg-danger">Importante</span>
+              {% elif msg.priority == 'normal' %}
+              <span class="badge bg-success">Consiglio</span>
+              {% else %}
+              <span class="badge bg-secondary">Suggerimento</span>
+              {% endif %}
+            </div>
+            <p class="mb-0 fs-5">{{ msg.body }}</p>
+          </div>
+        </div>
+      </div>
+    </div>
+    {% endfor %}
+  {% else %}
+    <div class="card ft-card">
+      <div class="card-body text-center py-5">
+        <i class="bi bi-emoji-smile fs-1 text-light-50"></i>
+        <p class="fs-5 mt-3 mb-0">Nessun messaggio per ora. Inizia a registrare pasti e allenamenti!</p>
+      </div>
+    </div>
+  {% endif %}
+
+  <div class="mt-4">
+    <a href="{{ url_for('dashboard') }}" class="btn ft-btn-outline">
+      <i class="bi bi-arrow-left"></i> Torna alla Dashboard
+    </a>
+  </div>
+</div>
+{% endblock %}

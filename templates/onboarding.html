@@ -1,0 +1,51 @@
+{% extends 'base.html' %}
+{% block title %}Benvenuto - {{ APP_NAME }}{% endblock %}
+
+{% block content %}
+<div class="ft-onboarding">
+  <div class="container">
+    <div class="ft-onboarding-card">
+      <div class="ft-onboarding-icon"><i class="bi bi-lightning-charge-fill"></i></div>
+      <h2>Benvenuto su {{ APP_NAME }}!</h2>
+      <p class="text-light-50">Ecco cosa puoi fare con la tua nuova app per il fitness.</p>
+
+      <div class="ft-onboarding-steps">
+        <div class="ft-onboarding-step active"></div>
+        <div class="ft-onboarding-step"></div>
+        <div class="ft-onboarding-step"></div>
+      </div>
+
+      <div class="text-start px-3">
+        <div class="d-flex align-items-start gap-3 mb-4">
+          <span class="ft-phase-num" style="flex-shrink: 0;">1</span>
+          <div>
+            <strong>Registra i pasti</strong>
+            <p class="text-light-50 mb-0 small">Scegli tra 100+ alimenti italiani nel diario alimentare. Cerca per nome o categoria.</p>
+          </div>
+        </div>
+        <div class="d-flex align-items-start gap-3 mb-4">
+          <span class="ft-phase-num" style="flex-shrink: 0;">2</span>
+          <div>
+            <strong>Traccia gli allenamenti</strong>
+            <p class="text-light-50 mb-0 small">Registra corsa, bici, nuoto, pesi. Ogni attività ha un consumo calorico automatico.</p>
+          </div>
+        </div>
+        <div class="d-flex align-items-start gap-3 mb-4">
+          <span class="ft-phase-num" style="flex-shrink: 0;">3</span>
+          <div>
+            <strong>Monitora i progressi</strong>
+            <p class="text-light-50 mb-0 small">Peso, misure corporee, obiettivi settimanali. I grafici ti mostrano l'evoluzione.</p>
+          </div>
+        </div>
+      </div>
+
+      <form method="post" action="{{ url_for('onboarding_done') }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <button type="submit" class="btn ft-btn-primary btn-lg w-100 mt-3">
+          <i class="bi bi-rocket-takeoff"></i> Inizia il percorso!
+        </button>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}

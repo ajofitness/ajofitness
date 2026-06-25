@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+{% block title %}{{ APP_NAME }} - Programmi{% endblock %}
+{% block content %}
+<div class="container py-4">
+  <div class="d-flex align-items-center gap-3 mb-4">
+    <div class="ft-icon-circle bg-gradient-soft">
+      <i class="bi bi-collection-play fs-2"></i>
+    </div>
+    <div>
+      <h1 class="fw-bold mb-0">Programmi tematici</h1>
+      <p class="text-light-50 mb-0">Percorsi strutturati per ogni obiettivo</p>
+    </div>
+  </div>
+
+  {% if active_enrollment %}
+  <div class="ft-card mb-4 border-{{ 'success' if active_enrollment.program.color else 'primary' }}" style="border-left: 4px solid {{ active_enrollment.program.color or '#ff6b35' }};">
+    <div class="card-body d-flex align-items-center justify-content-between flex-wrap gap-2">
+      <div>
+        <span class="badge bg-success mb-1">Attivo</span>
+        <h4 class="mb-1">{{ active_enrollment.program.name }}</h4>
+        <p class="mb-0 small text-light-50">Giorno {{ active_enrollment.current_day }} di {{ active_enrollment.program.duration_days }}</p>
+      </div>
+      <a href="{{ url_for('program_my') }}" class="btn ft-btn-primary">
+        <i class="bi bi-arrow-right"></i> Vai al programma
+      </a>
+    </div>
+  </div>
+  {% endif %}
+
+  <div class="row g-4">
+    {% for prog in programs %}
+    <div class="col-md-6 col-lg-4">
+      <a href="{{ url_for('program_detail', slug=prog.slug) }}" class="text-decoration-none">
+        <div class="card ft-card h-100 program-card">
+          <div class="card-body d-flex flex-column">
+            <div class="d-flex align-items-center gap-3 mb-3">
+              <div class="program-icon" style="background: {{ prog.color }}20; color: {{ prog.color }}; width: 50px; height: 50px; border-radius: 14px; display: flex; align-items: center; justify-content: center; font-size: 1.5rem;">
+                <i class="bi {{ prog.icon }}"></i>
+              </div>
+              <div>
+                <h5 class="mb-0">{{ prog.name }}</h5>
+                <span class="badge bg-{{ 'danger' if prog.difficulty == 'advanced' else 'warning' if prog.difficulty == 'intermediate' else 'success' }}">{{ prog.difficulty }}</span>
+              </div>
+            </div>
+            <p class="text-light-50 small flex-grow-1">{{ prog.description[:120] }}{% if prog.description|length > 120 %}...{% endif %}</p>
+            <div class="d-flex justify-content-between small text-light-50 mt-auto pt-2 border-top border-secondary">
+              <span><i class="bi bi-calendar"></i> {{ prog.duration_days }} giorni</span>
+              <span><i class="bi bi-bicycle"></i> {{ prog.workout_freq_per_week }}/sett</span>
+            </div>
+          </div>
+        </div>
+      </a>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,86 @@
+{% extends 'base.html' %}
+{% block title %}Obiettivi - {{ APP_NAME }}{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+  <div class="ft-page-header mb-4 d-flex justify-content-between align-items-end flex-wrap gap-2">
+    <div>
+      <h1><i class="bi bi-trophy"></i> Obiettivi settimanali</h1>
+      <p class="text-light-50 mb-0">Fissa traguardi e monitora i tuoi progressi</p>
+    </div>
+  </div>
+
+  <div class="row g-4">
+    <div class="col-lg-5">
+      <div class="ft-card ft-sticky">
+        <div class="ft-card-header">
+          <h3><i class="bi bi-plus-circle"></i> Nuovo obiettivo</h3>
+        </div>
+        <div class="ft-card-body">
+          <form method="post" action="{{ url_for('goals_add') }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <div class="mb-3">
+              <label class="form-label">Tipo</label>
+              <select name="goal_type" class="form-select ft-input">
+                <option value="workouts">Allenamenti alla settimana</option>
+                <option value="water_days">Giorni con 2L+ acqua</option>
+                <option value="calorie_days">Giorni nel target calorico</option>
+                <option value="weight_loss">Peso da perdere (kg)</option>
+              </select>
+            </div>
+            <div class="mb-3">
+              <label class="form-label">Obiettivo (numero)</label>
+              <input type="number" name="target" class="form-control ft-input" required
+                     min="1" max="100" step="0.1" value="3">
+            </div>
+            <button type="submit" class="btn ft-btn-primary w-100">
+              <i class="bi bi-check-lg"></i> Crea obiettivo
+            </button>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-lg-7">
+      <h5 class="mb-3"><i class="bi bi-clock"></i> Obiettivi attivi (settimana {{ week_start.strftime('%d/%m') }})</h5>
+      {% if active_goals %}
+        {% for g in active_goals %}
+        <div class="ft-goal-card">
+          <div class="ft-goal-header">
+            <div class="ft-goal-type">{{ g.goal_type|replace('_', ' ') }}</div>
+            <span class="ft-goal-progress-text">{{ g.current|round(0) }} / {{ g.target|round(0) }}</span>
+          </div>
+          <div class="ft-goal-bar">
+            <div class="ft-goal-bar-fill" style="width: {{ (g.current / g.target * 100) if g.current <= g.target else 100 }}%"></div>
+          </div>
+          <form method="post" action="{{ url_for('goals_progress', goal_id=g.id) }}" class="mt-2">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <div class="input-group input-group-sm">
+              <input type="number" name="amount" class="form-control ft-input" value="1" min="0.1" max="100" step="0.1" style="max-width: 70px;">
+              <button type="submit" class="btn ft-btn-primary btn-sm"><i class="bi bi-plus"></i> Aggiorna</button>
+            </div>
+          </form>
+        </div>
+        {% endfor %}
+      {% else %}
+        <div class="ft-empty-state">
+          <i class="bi bi-trophy"></i>
+          <p>Nessun obiettivo attivo. Creane uno!</p>
+        </div>
+      {% endif %}
+
+      {% if past_goals %}
+      <h5 class="mb-3 mt-4"><i class="bi bi-check-circle"></i> Obiettivi raggiunti</h5>
+      {% for g in past_goals %}
+      <div class="ft-goal-card" style="border-left-color: var(--success); opacity: 0.7;">
+        <div class="ft-goal-header">
+          <div class="ft-goal-type">{{ g.goal_type|replace('_', ' ') }}</div>
+          <span class="text-success"><i class="bi bi-check-circle-fill"></i> {{ g.current|round(0) }} / {{ g.target|round(0) }}</span>
+        </div>
+      </div>
+      {% endfor %}
+      {% endif %}
+    </div>
+  </div>
+</div>
+{% endblock %}

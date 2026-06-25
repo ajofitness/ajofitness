@@ -1,0 +1,42 @@
+{% extends 'base.html' %}
+{% block title %}Esporta dati - {{ APP_NAME }}{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+  <div class="ft-page-header mb-4">
+    <h1><i class="bi bi-download"></i> Esporta i tuoi dati</h1>
+    <p class="text-light-50 mb-0">Scarica i tuoi dati in formato CSV per analizzarli con Excel o altri strumenti</p>
+  </div>
+
+  <div class="ft-export-grid">
+    <a href="{{ url_for('export_csv', data_type='weight') }}" class="ft-export-card">
+      <i class="bi bi-arrow-down-circle"></i>
+      <h5>Peso</h5>
+      <p class="small text-light-50 mb-0">Tutte le registrazioni del peso</p>
+    </a>
+    <a href="{{ url_for('export_csv', data_type='measurements') }}" class="ft-export-card">
+      <i class="bi bi-rulers"></i>
+      <h5>Misure</h5>
+      <p class="small text-light-50 mb-0">Misure corporee</p>
+    </a>
+    <a href="{{ url_for('export_csv', data_type='meals') }}" class="ft-export-card">
+      <i class="bi bi-journal-text"></i>
+      <h5>Pasti</h5>
+      <p class="small text-light-50 mb-0">Diario alimentare completo</p>
+    </a>
+    <a href="{{ url_for('export_csv', data_type='workouts') }}" class="ft-export-card">
+      <i class="bi bi-bicycle"></i>
+      <h5>Allenamenti</h5>
+      <p class="small text-light-50 mb-0">Tutti gli allenamenti registrati</p>
+    </a>
+  </div>
+
+  <div class="ft-tip-card mt-4">
+    <i class="bi bi-info-circle"></i>
+    <div>
+      <strong>Privacy</strong>
+      <p class="mb-0">I file CSV contengono solo i tuoi dati. Non vengono inviati a nessun server esterno.</p>
+    </div>
+  </div>
+</div>
+{% endblock %}

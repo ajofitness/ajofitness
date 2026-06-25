@@ -1,0 +1,99 @@
+{% extends 'base.html' %}
+{% block title %}Registrati - {{ APP_NAME }}{% endblock %}
+
+{% block content %}
+<div class="ft-auth-page">
+  <div class="container">
+    <div class="row justify-content-center">
+      <div class="col-md-8 col-lg-7">
+        <div class="ft-auth-card">
+          <div class="ft-auth-header">
+            <a href="{{ url_for('index') }}" class="ft-brand-link">
+              <i class="bi bi-lightning-charge-fill"></i> {{ APP_NAME }}
+            </a>
+            <h2>Crea il tuo account</h2>
+            <p>30 secondi e sei pronto per partire.</p>
+          </div>
+          <form method="post" action="{{ url_for('register') }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <div class="row">
+              <div class="col-md-6 mb-3">
+                <label class="form-label">Nome</label>
+                <input type="text" name="name" class="form-control ft-input" required
+                       placeholder="Mario Rossi">
+              </div>
+              <div class="col-md-6 mb-3">
+                <label class="form-label">Email</label>
+                <input type="email" name="email" class="form-control ft-input" required
+                       placeholder="tu@esempio.it">
+              </div>
+            </div>
+            <div class="mb-3">
+              <label class="form-label">Password <small class="text-light-50">(min 6 caratteri)</small></label>
+              <input type="password" name="password" class="form-control ft-input" required minlength="6"
+                     placeholder="Scegli una password">
+            </div>
+            <div class="row">
+              <div class="col-md-6 mb-3">
+                <label class="form-label">Sesso</label>
+                <select name="gender" class="form-select ft-input">
+                  <option value="M">Uomo</option>
+                  <option value="F">Donna</option>
+                </select>
+              </div>
+              <div class="col-md-6 mb-3">
+                <label class="form-label">Data di nascita</label>
+                <input type="date" name="birth_date" class="form-control ft-input" required
+                       value="1990-01-01">
+              </div>
+            </div>
+            <div class="row">
+              <div class="col-md-4 mb-3">
+                <label class="form-label">Altezza (cm)</label>
+                <input type="number" name="height" class="form-control ft-input" required
+                       min="120" max="230" value="175">
+              </div>
+              <div class="col-md-4 mb-3">
+                <label class="form-label">Peso attuale (kg)</label>
+                <input type="number" name="current_weight" class="form-control ft-input" required
+                       min="35" max="300" step="0.1" value="80">
+              </div>
+              <div class="col-md-4 mb-3">
+                <label class="form-label">Obiettivo (kg)</label>
+                <input type="number" name="target_weight" class="form-control ft-input" required
+                       min="35" max="300" step="0.1" value="70">
+              </div>
+            </div>
+            <div class="row">
+              <div class="col-md-6 mb-3">
+                <label class="form-label">Livello di attività</label>
+                <select name="activity" class="form-select ft-input">
+                  {% for key, label in activity_options.items() %}
+                  <option value="{{ key }}" {% if key == 'moderate' %}selected{% endif %}>{{ label }}</option>
+                  {% endfor %}
+                </select>
+              </div>
+              <div class="col-md-6 mb-3">
+                <label class="form-label">Deficit calorico</label>
+                <select name="deficit" class="form-select ft-input">
+                  {% for val, label in deficit_options.items() %}
+                  <option value="{{ val }}" {% if val == 500 %}selected{% endif %}>{{ label }}</option>
+                  {% endfor %}
+                </select>
+              </div>
+            </div>
+            <button type="submit" class="btn ft-btn-primary w-100 btn-lg">
+              <i class="bi bi-rocket-takeoff"></i> Crea account e inizia
+            </button>
+          </form>
+          <hr class="ft-divider">
+          <p class="text-center mb-0 text-light-50">
+            Hai già un account? <a href="{{ url_for('login') }}" class="ft-link">Accedi</a>
+            &middot; <a href="{{ url_for('login_demo') }}" class="ft-link">Prova demo</a>
+          </p>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

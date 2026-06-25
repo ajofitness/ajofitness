@@ -1,0 +1,477 @@
+{% extends 'base.html' %}
+{% block title %}Diario alimentare - {{ APP_NAME }}{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+  <div class="ft-page-header mb-4 d-flex justify-content-between align-items-end flex-wrap gap-2">
+    <div>
+      <h1><i class="bi bi-journal-text"></i> Diario alimentare</h1>
+      <p class="text-light-50 mb-0">{{ date_italian(selected_date) }}</p>
+    </div>
+    <div class="ft-date-nav">
+      <a href="{{ url_for('diary', date=prev_date.isoformat()) }}" class="btn ft-btn-outline btn-sm"><i class="bi bi-chevron-left"></i></a>
+      <span class="ft-date-current">{{ selected_date.strftime('%d/%m/%Y') }}</span>
+      {% if selected_date.isoformat() < today_str %}
+      <a href="{{ url_for('diary', date=next_date.isoformat()) }}" class="btn ft-btn-outline btn-sm"><i class="bi bi-chevron-right"></i></a>
+      {% else %}
+      <button class="btn ft-btn-outline btn-sm" disabled><i class="bi bi-chevron-right"></i></button>
+      {% endif %}
+      {% if selected_date.isoformat() != today_str %}
+      <a href="{{ url_for('diary') }}" class="btn ft-btn-outline btn-sm ms-2">Oggi</a>
+      {% endif %}
+    </div>
+  </div>
+
+  <div class="ft-day-total mb-4">
+    <div class="row text-center">
+      <div class="col-3">
+        <div class="ft-day-num">{{ totals.kcal|round(0) }}</div>
+        <div class="ft-day-lbl">kcal</div>
+      </div>
+      <div class="col-3">
+        <div class="ft-day-num">{{ totals.protein|round(0) }}g</div>
+        <div class="ft-day-lbl">proteine</div>
+      </div>
+      <div class="col-3">
+        <div class="ft-day-num">{{ totals.carbs|round(0) }}g</div>
+        <div class="ft-day-lbl">carboidrati</div>
+      </div>
+      <div class="col-3">
+        <div class="ft-day-num">{{ totals.fat|round(0) }}g</div>
+        <div class="ft-day-lbl">grassi</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="row g-4">
+    <div class="col-lg-8">
+      {% for meal_key, meal_label in [('breakfast','Colazione'), ('lunch','Pranzo'), ('snack','Spuntino'), ('dinner','Cena')] %}
+      <div class="ft-card mb-3">
+        <div class="ft-card-header">
+          <h3><i class="bi bi-{{ {'breakfast':'cup-hot','lunch':'egg-fried','snack':'apple','dinner':'moon-stars'}[meal_key] }}"></i> {{ meal_label }}</h3>
+          <span class="badge ft-badge">{{ meals_by_type[meal_key]|map(attribute='kcal')|sum|round(0) }} kcal</span>
+        </div>
+        <div class="ft-card-body p-0">
+          {% if meals_by_type[meal_key] %}
+          <div class="ft-meal-list">
+            {% for entry in meals_by_type[meal_key] %}
+            <div class="ft-meal-item">
+              <div class="ft-meal-info">
+                <div class="ft-meal-name">{{ entry.display_name }}</div>
+                <div class="ft-meal-meta">{{ entry.quantity_g|round(0) }}g &middot; {{ entry.kcal|round(0) }} kcal &middot; P{{ entry.protein|round(0) }} C{{ entry.carbs|round(0) }} G{{ entry.fat|round(0) }}</div>
+              </div>
+              <form method="post" action="{{ url_for('diary_delete', entry_id=entry.id) }}"
+                    onsubmit="return confirm('Rimuovere questo pasto?');">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <button type="submit" class="btn ft-btn-icon-danger"><i class="bi bi-trash"></i></button>
+              </form>
+            </div>
+            {% endfor %}
+          </div>
+          {% else %}
+          <div class="ft-meal-empty">
+            <i class="bi bi-emoji-neutral"></i> Nessun pasto registrato
+          </div>
+          {% endif %}
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+
+    <div class="col-lg-4">
+      <div class="ft-card ft-sticky mb-4">
+        <div class="ft-card-header">
+          <h3><i class="bi bi-plus-circle"></i> Aggiungi alimento</h3>
+        </div>
+        <div class="ft-card-body">
+          <form class="mb-3" onsubmit="event.preventDefault(); searchOpenFoodFacts(document.getElementById('foodSearchInput').value);">
+            <input type="hidden" name="date" value="{{ selected_date.isoformat() }}">
+            <div class="input-group">
+              <input type="text" value="{{ search_q }}" class="form-control ft-input"
+                     placeholder="Cerca su Open Food Facts..." id="foodSearchInput" autofocus>
+              <button class="btn ft-btn-primary" type="submit"><i class="bi bi-search"></i></button>
+              <button class="btn ft-btn-outline" type="button" id="btnScanBarcode" title="Scansiona codice a barre">
+                <i class="bi bi-upc-scan"></i>
+              </button>
+            </div>
+          </form>
+
+          <div class="ft-food-results">
+            {% if search_q and search_q|length >= 2 %}
+            <div id="offResults" style="display:block;">
+              <div class="ft-food-separator"><span>Open Food Facts</span></div>
+              <div id="offResultsList"><p class="text-light-50 text-center py-2">Caricamento...</p></div>
+            </div>
+            {% else %}
+            <div id="offResults" style="display:none;">
+              <div class="ft-food-separator"><span>Open Food Facts</span></div>
+              <div id="offResultsList"></div>
+            </div>
+            {% endif %}
+            <div id="barcodeResult" style="display:none;" class="mt-2">
+              <div class="ft-food-separator"><span>Scansione codice a barre</span></div>
+              <div id="barcodeResultContent"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="ft-card ft-sticky mb-4">
+        <div class="ft-card-header">
+          <h3><i class="bi bi-egg"></i> Tuoi alimenti</h3>
+          <button class="btn ft-btn-outline btn-sm" data-bs-toggle="modal" data-bs-target="#addCustomFoodModal"><i class="bi bi-plus"></i></button>
+        </div>
+        <div class="ft-card-body p-0">
+          {% if custom_foods %}
+          <div>
+            {% for cf in custom_foods %}
+            <div class="ft-custom-food-item" onclick="ft_open_add({{ cf.id }}, '{{ cf.name|replace("'", "\\'") }}', {{ cf.default_portion_g }}, {{ cf.kcal_per_100g }}, 'custom')" style="cursor:pointer;">
+              <div class="ft-custom-food-name">{{ cf.name }}</div>
+              <div class="ft-custom-food-meta">{{ cf.kcal_per_100g }} kcal</div>
+              <form method="post" action="{{ url_for('custom_food_delete', food_id=cf.id) }}" class="d-inline"
+                    onsubmit="event.stopPropagation(); return confirm('Eliminare questo alimento?');">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <button type="submit" class="btn ft-btn-icon-danger btn-sm"><i class="bi bi-trash"></i></button>
+              </form>
+            </div>
+            {% endfor %}
+          </div>
+          {% else %}
+          <p class="text-light-50 text-center py-3 small">Crea il tuo primo alimento personalizzato!</p>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="modal fade" id="addFoodModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content ft-modal">
+      <div class="modal-header">
+        <h5 class="modal-title"><i class="bi bi-plus-circle"></i> Aggiungi al pasto</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <form method="post" action="{{ url_for('diary_add') }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="modal-body">
+          <input type="hidden" name="food_id" id="modal_food_id">
+          <input type="hidden" name="custom_food_id" id="modal_custom_food_id">
+          <input type="hidden" name="off_name" id="modal_off_name">
+          <input type="hidden" name="off_kcal" id="modal_off_kcal">
+          <input type="hidden" name="off_protein" id="modal_off_protein">
+          <input type="hidden" name="off_carbs" id="modal_off_carbs">
+          <input type="hidden" name="off_fat" id="modal_off_fat">
+          <input type="hidden" name="date" value="{{ selected_date.isoformat() }}">
+          <div class="mb-3">
+            <label class="form-label">Alimento</label>
+            <div id="modal_food_name" class="ft-display-text"></div>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Pasto</label>
+            <select name="meal_type" class="form-select ft-input" id="modal_meal_type">
+              <option value="breakfast">Colazione</option>
+              <option value="lunch">Pranzo</option>
+              <option value="snack">Spuntino</option>
+              <option value="dinner">Cena</option>
+            </select>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Quantità (grammi)</label>
+            <input type="number" name="quantity" id="modal_quantity" class="form-control ft-input"
+                   min="1" max="5000" step="1" required>
+            <div class="form-text" id="modal_calc">0 kcal</div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn ft-btn-outline" data-bs-dismiss="modal">Annulla</button>
+          <button type="submit" class="btn ft-btn-primary"><i class="bi bi-check-lg"></i> Aggiungi</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<div class="modal fade" id="addCustomFoodModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content ft-modal">
+      <div class="modal-header">
+        <h5 class="modal-title"><i class="bi bi-egg"></i> Nuovo alimento personalizzato</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <form method="post" action="{{ url_for('custom_food_add') }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="modal-body">
+          <div class="mb-3">
+            <label class="form-label">Nome alimento</label>
+            <input type="text" name="name" class="form-control ft-input" required placeholder="Es: Frullato proteico home">
+          </div>
+          <div class="row">
+            <div class="col-6 mb-3">
+              <label class="form-label">Categoria</label>
+              <select name="category" class="form-select ft-input">
+                {% for cat in categories %}
+                <option value="{{ cat }}">{{ cat }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="col-6 mb-3">
+              <label class="form-label">Porzione default (g)</label>
+              <input type="number" name="portion" class="form-control ft-input" value="100" min="1" max="2000">
+            </div>
+          </div>
+          <div class="row">
+            <div class="col-6 mb-3">
+              <label class="form-label">Kcal / 100g</label>
+              <input type="number" name="kcal" class="form-control ft-input" value="100" min="0" max="900" step="0.1">
+            </div>
+            <div class="col-6 mb-3">
+              <label class="form-label">Proteine (g)</label>
+              <input type="number" name="protein" class="form-control ft-input" value="0" min="0" max="100" step="0.1">
+            </div>
+            <div class="col-6 mb-3">
+              <label class="form-label">Carboidrati (g)</label>
+              <input type="number" name="carbs" class="form-control ft-input" value="0" min="0" max="100" step="0.1">
+            </div>
+            <div class="col-6 mb-3">
+              <label class="form-label">Grassi (g)</label>
+              <input type="number" name="fat" class="form-control ft-input" value="0" min="0" max="100" step="0.1">
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn ft-btn-outline" data-bs-dismiss="modal">Annulla</button>
+          <button type="submit" class="btn ft-btn-primary"><i class="bi bi-check-lg"></i> Crea alimento</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<div class="modal fade" id="barcodeScannerModal" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content ft-modal">
+      <div class="modal-header">
+        <h5 class="modal-title"><i class="bi bi-upc-scan"></i> Scansiona codice a barre</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body text-center">
+        <div id="barcodeScanner" style="width:100%;min-height:280px;"></div>
+        <p class="text-light-50 small mt-2" id="barcodeStatus">Inquadra il codice a barre con la fotocamera</p>
+        <div id="barcodeResult" style="display:none;" class="mt-2">
+          <div id="barcodeResultContent"></div>
+        </div>
+        <hr class="border-secondary">
+        <div class="d-flex gap-2">
+          <input type="text" class="form-control ft-input" id="manualBarcode" placeholder="Oppure inserisci il codice a mano...">
+          <button class="btn ft-btn-primary" id="btnLookupBarcode"><i class="bi bi-search"></i></button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block extra_head %}
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+{% endblock %}
+
+{% block extra_scripts %}
+<script src="https://cdn.jsdelivr.net/npm/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+<script>
+(function(){
+  const h = new Date().getHours();
+  let meal = 'snack';
+  if (h >= 6 && h < 11) meal = 'breakfast';
+  else if (h >= 11 && h < 15) meal = 'lunch';
+  else if (h >= 18) meal = 'dinner';
+  const sel = document.getElementById('modal_meal_type');
+  if (sel) sel.value = meal;
+})();
+
+let currentKcal100 = 0;
+function ft_open_add(id, name, defaultPortion, kcal100, type) {
+  document.getElementById('modal_food_id').value = type === 'food' ? id : '';
+  document.getElementById('modal_custom_food_id').value = type === 'custom' ? id : '';
+  document.getElementById('modal_food_name').textContent = name;
+  document.getElementById('modal_quantity').value = defaultPortion;
+  currentKcal100 = kcal100;
+  ft_update_calc();
+  const modal = new bootstrap.Modal(document.getElementById('addFoodModal'));
+  modal.show();
+}
+function ft_update_calc() {
+  const q = parseFloat(document.getElementById('modal_quantity').value) || 0;
+  const kcal = (currentKcal100 * q / 100).toFixed(0);
+  document.getElementById('modal_calc').textContent = kcal + ' kcal';
+}
+document.getElementById('modal_quantity').addEventListener('input', ft_update_calc);
+
+function ft_add_from_off(name, kcal, protein, carbs, fat) {
+  currentKcal100 = kcal || 0;
+  document.getElementById('modal_food_id').value = '';
+  document.getElementById('modal_custom_food_id').value = '';
+  document.getElementById('modal_food_name').textContent = name;
+  document.getElementById('modal_quantity').value = 100;
+  document.getElementById('modal_off_name').value = name;
+  document.getElementById('modal_off_kcal').value = kcal || 0;
+  document.getElementById('modal_off_protein').value = protein || 0;
+  document.getElementById('modal_off_carbs').value = carbs || 0;
+  document.getElementById('modal_off_fat').value = fat || 0;
+  ft_update_calc();
+  const modal = new bootstrap.Modal(document.getElementById('addFoodModal'));
+  modal.show();
+}
+
+function ft_add_from_custom_food(id, name, kcal, protein, carbs, fat) {
+  currentKcal100 = kcal || 0;
+  document.getElementById('modal_food_id').value = '';
+  document.getElementById('modal_custom_food_id').value = id;
+  document.getElementById('modal_food_name').textContent = name;
+  document.getElementById('modal_quantity').value = 100;
+  document.getElementById('modal_off_name').value = '';
+  ft_update_calc();
+  const modal = new bootstrap.Modal(document.getElementById('addFoodModal'));
+  modal.show();
+}
+
+function ft_add_food_row(name, kcal, protein, carbs, fat, source) {
+  return '<div class="ft-food-row" onclick="ft_add_from_off(\'' + name.replace(/'/g, "\\'") +
+    '\',' + (kcal || 0) + ',' + (protein || 0) + ',' + (carbs || 0) + ',' + (fat || 0) + ')">' +
+    '<div class="ft-food-name">' + name + '</div>' +
+    '<div class="ft-food-meta"><span class="ft-food-cat">' + source + '</span>' +
+    '<span>' + (kcal || 0) + ' kcal/100g</span></div></div>';
+}
+
+// Open Food Facts search
+function searchOpenFoodFacts(query) {
+  var btn = document.querySelector('button[onclick*="searchOpenFoodFacts"]');
+  if (btn) btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Cerco...';
+  document.getElementById('offResults').style.display = 'block';
+  document.getElementById('offResultsList').innerHTML = '<p class="text-light-50 text-center py-2">Caricamento...</p>';
+
+  fetch('/api/food/search?q=' + encodeURIComponent(query))
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      var html = '';
+      data.results.forEach(function(item) {
+        html += ft_add_food_row(item.name, item.kcal, item.protein, item.carbs, item.fat, item.source);
+      });
+      document.getElementById('offResultsList').innerHTML = html || '<p class="text-light-50 text-center py-2">Nessun risultato.</p>';
+    })
+    .catch(function() {
+      document.getElementById('offResultsList').innerHTML = '<p class="text-light-50 text-center py-2">Errore di ricerca.</p>';
+    })
+    .finally(function() {
+      if (btn) btn.innerHTML = '<i class="bi bi-globe"></i> Cerca su Open Food Facts';
+    });
+}
+
+// Immediately search OFF if search_q is present
+document.addEventListener('DOMContentLoaded', function() {
+  var searchQ = '{{ search_q|replace("'", "\\'") }}';
+  if (searchQ && searchQ.length >= 2) {
+    searchOpenFoodFacts(searchQ);
+  }
+});
+
+// Barcode scanning
+var html5QrCode = null;
+var barcodeScannerModal = document.getElementById('barcodeScannerModal');
+
+barcodeScannerModal.addEventListener('shown.bs.modal', function() {
+  if (window.location.protocol !== 'https:' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
+    document.getElementById('barcodeStatus').innerHTML = 'La fotocamera live richiede HTTPS. <br><small>Usa <a href="https://' + window.location.hostname + ':5000' + window.location.pathname + '">https://' + window.location.hostname + ':5000</a> oppure inserisci il codice a mano.</small>';
+    return;
+  }
+  document.getElementById('barcodeStatus').textContent = 'Attivazione fotocamera...';
+  var scanner = document.getElementById('barcodeScanner');
+  scanner.style.display = 'block';
+  scanner.style.minHeight = '280px';
+  if (!html5QrCode) {
+    html5QrCode = new Html5Qrcode("barcodeScanner");
+  }
+  var tryCameras = [{ facingMode: "environment" }, { facingMode: "user" }];
+  var camIndex = 0;
+  function startCamera() {
+    if (camIndex >= tryCameras.length) {
+      document.getElementById('barcodeStatus').innerHTML = 'Fotocamera non disponibile. <br><small>Inserisci il codice a mano qui sotto.</small>';
+      return;
+    }
+    html5QrCode.start(
+      tryCameras[camIndex],
+      { fps: 10, qrbox: { width: 250, height: 150 }, formatsToSupport: [ Html5QrcodeSupportedFormats.EAN_13, Html5QrcodeSupportedFormats.EAN_8, Html5QrcodeSupportedFormats.UPC_A, Html5QrcodeSupportedFormats.UPC_E, Html5QrcodeSupportedFormats.CODE_128 ] },
+      function(decodedText) {
+        html5QrCode.stop();
+        document.getElementById('barcodeStatus').textContent = 'Codice trovato: ' + decodedText;
+        lookupBarcode(decodedText);
+      },
+      function() {}
+    ).then(function() {
+      document.getElementById('barcodeStatus').textContent = 'Inquadra il codice a barre';
+    }).catch(function(err) {
+      camIndex++;
+      startCamera();
+    });
+  }
+  startCamera();
+});
+
+barcodeScannerModal.addEventListener('hidden.bs.modal', function() {
+  if (html5QrCode) {
+    html5QrCode.stop().catch(function() {});
+  }
+});
+
+document.getElementById('btnScanBarcode').addEventListener('click', function() {
+  var modal = new bootstrap.Modal(barcodeScannerModal);
+  modal.show();
+});
+
+document.getElementById('btnLookupBarcode').addEventListener('click', function() {
+  var code = document.getElementById('manualBarcode').value.trim();
+  if (code) lookupBarcode(code);
+});
+document.getElementById('manualBarcode').addEventListener('keydown', function(e) {
+  if (e.key === 'Enter') {
+    e.preventDefault();
+    document.getElementById('btnLookupBarcode').click();
+  }
+});
+
+function lookupBarcode(code) {
+  document.getElementById('barcodeStatus').textContent = 'Ricerca...';
+  fetch('/api/food/barcode/' + encodeURIComponent(code))
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      if (data.found) {
+        document.getElementById('barcodeStatus').textContent = 'Salvo in "I tuoi alimenti"...';
+        fetch('/api/food/save-barcode-food', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({name: data.name, kcal: data.kcal, protein: data.protein, carbs: data.carbs, fat: data.fat})
+        }).then(function(r) { return r.json(); }).then(function(saveResult) {
+          var modal = bootstrap.Modal.getInstance(barcodeScannerModal);
+          if (modal) modal.hide();
+          document.getElementById('barcodeStatus').textContent = '';
+          var ok = document.createElement('div');
+          ok.className = 'alert alert-success mt-2';
+          ok.innerHTML = '<i class="bi bi-check-circle"></i> <strong>' + data.name + '</strong> salvato in "I tuoi alimenti"';
+          document.getElementById('barcodeResult').style.display = 'block';
+          document.getElementById('barcodeResultContent').innerHTML = '';
+          document.getElementById('barcodeResultContent').appendChild(ok);
+          setTimeout(function() { location.reload(); }, 2000);
+        }).catch(function() {
+          document.getElementById('barcodeStatus').textContent = 'Errore nel salvataggio.';
+        });
+      } else {
+        document.getElementById('barcodeStatus').textContent = 'Prodotto non trovato. Riprova.';
+      }
+    })
+    .catch(function() {
+      document.getElementById('barcodeStatus').textContent = 'Errore di ricerca.';
+    });
+}
+</script>
+{% endblock %}

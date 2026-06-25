@@ -1,0 +1,137 @@
+{% extends 'base.html' %}
+{% block title %}{{ APP_NAME }} - Dimagrisci in modo intelligente{% endblock %}
+
+{% block content %}
+<section class="ft-hero">
+  <div class="container">
+    <div class="row align-items-center min-vh-75">
+      <div class="col-lg-7">
+        <span class="ft-badge mb-3"><i class="bi bi-stars"></i> Nuovo: programma 16 settimane incluso</span>
+        <h1 class="ft-hero-title">
+          Trasforma il tuo<br>
+          <span class="ft-accent-text">corpo</span> e la tua<br>
+          <span class="ft-accent-text">vita</span>.
+        </h1>
+        <p class="ft-hero-subtitle">
+          Calcoli nutrizionali scientifici, diario alimentare con 100+ alimenti italiani,
+          tracking allenamenti e grafici di progresso. Tutto gratis, tutto in italiano.
+        </p>
+        <div class="d-flex flex-wrap gap-3 mt-4">
+          <a href="{{ url_for('register') }}" class="btn ft-btn-primary btn-lg">
+            <i class="bi bi-rocket-takeoff"></i> Inizia gratis
+          </a>
+          <a href="{{ url_for('login_demo') }}" class="btn ft-btn-outline btn-lg">
+            <i class="bi bi-play-circle"></i> Prova demo
+          </a>
+        </div>
+        <div class="ft-stats mt-5">
+          <div class="ft-stat">
+            <div class="ft-stat-num">100+</div>
+            <div class="ft-stat-lbl">Alimenti italiani</div>
+          </div>
+          <div class="ft-stat">
+            <div class="ft-stat-num">13</div>
+            <div class="ft-stat-lbl">Attivit&agrave; sportive</div>
+          </div>
+          <div class="ft-stat">
+            <div class="ft-stat-num">0&euro;</div>
+            <div class="ft-stat-lbl">Per sempre gratis</div>
+          </div>
+        </div>
+      </div>
+      <div class="col-lg-5 d-none d-lg-block">
+        <div class="ft-hero-card">
+          <div class="ft-hero-card-header">
+            <i class="bi bi-speedometer2"></i> La tua dashboard
+          </div>
+          <div class="ft-hero-card-body">
+            <div class="ft-mini-stat">
+              <span>Obiettivo</span>
+              <strong>75 kg</strong>
+            </div>
+            <div class="ft-mini-stat">
+              <span>Calorie oggi</span>
+              <strong class="ft-accent-text">1.850 / 1.850</strong>
+            </div>
+            <div class="ft-mini-bar">
+              <div class="ft-mini-bar-fill" style="width: 80%"></div>
+            </div>
+            <div class="ft-mini-stat">
+              <span>Progresso</span>
+              <strong class="text-success">-5 kg / -15 kg</strong>
+            </div>
+            <div class="ft-mini-chart">
+              <svg viewBox="0 0 200 60" class="img-fluid">
+                <polyline fill="none" stroke="#ff6b35" stroke-width="3"
+                  points="0,10 25,15 50,12 75,20 100,25 125,30 150,38 175,45 200,50"/>
+                <polyline fill="rgba(255,107,53,0.15)" stroke="none"
+                  points="0,10 25,15 50,12 75,20 100,25 125,30 150,38 175,45 200,50 200,60 0,60"/>
+              </svg>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="ft-features py-5">
+  <div class="container">
+    <h2 class="text-center mb-5 ft-section-title">Tutto quello che ti serve per <span class="ft-accent-text">dimagrire bene</span></h2>
+    <div class="row g-4">
+      <div class="col-md-4">
+        <div class="ft-feature-card">
+          <div class="ft-feature-icon"><i class="bi bi-calculator"></i></div>
+          <h3>Calcoli personalizzati</h3>
+          <p>Metabolismo basale, fabbisogno giornaliero e macros calcolati con formule scientifiche (Mifflin-St Jeor).</p>
+        </div>
+      </div>
+      <div class="col-md-4">
+        <div class="ft-feature-card">
+          <div class="ft-feature-icon"><i class="bi bi-journal-text"></i></div>
+          <h3>Diario alimentare</h3>
+          <p>Pi&ugrave; di 100 alimenti italiani comuni con valori nutrizionali. Traccia ogni pasto e vedi i totali in tempo reale.</p>
+        </div>
+      </div>
+      <div class="col-md-4">
+        <div class="ft-feature-card">
+          <div class="ft-feature-icon"><i class="bi bi-bicycle"></i></div>
+          <h3>Tracking allenamenti</h3>
+          <p>Registra corsa, bici, nuoto, pesi. Calcolo automatico delle calorie bruciate con i valori MET.</p>
+        </div>
+      </div>
+      <div class="col-md-4">
+        <div class="ft-feature-card">
+          <div class="ft-feature-icon"><i class="bi bi-graph-up-arrow"></i></div>
+          <h3>Grafici progresso</h3>
+          <p>Visualizza l'andamento del peso nel tempo, calorie consumate e bruciate. La motivazione vien graficando.</p>
+        </div>
+      </div>
+      <div class="col-md-4">
+        <div class="ft-feature-card">
+          <div class="ft-feature-icon"><i class="bi bi-clipboard-check"></i></div>
+          <h3>Piano personalizzato</h3>
+          <p>Ricevi un piano di 16 settimane con target calorico, macros e tempistiche, calcolato sui tuoi dati.</p>
+        </div>
+      </div>
+      <div class="col-md-4">
+        <div class="ft-feature-card">
+          <div class="ft-feature-icon"><i class="bi bi-shield-check"></i></div>
+          <h3>Privato e sicuro</h3>
+          <p>I tuoi dati restano sul tuo dispositivo. Nessuna pubblicit&agrave;, nessun tracker di terze parti.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="ft-cta py-5">
+  <div class="container text-center">
+    <h2 class="ft-section-title">Pronto a iniziare?</h2>
+    <p class="ft-hero-subtitle mb-4">Registrati in 30 secondi e inizia subito il tuo percorso.</p>
+    <a href="{{ url_for('register') }}" class="btn ft-btn-primary btn-lg">
+      <i class="bi bi-rocket-takeoff"></i> Crea account gratis
+    </a>
+  </div>
+</section>
+{% endblock %}

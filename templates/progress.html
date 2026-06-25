@@ -1,0 +1,240 @@
+{% extends 'base.html' %}
+{% block title %}Progressi - {{ APP_NAME }}{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+  <div class="ft-page-header mb-4">
+    <h1><i class="bi bi-graph-up-arrow"></i> I tuoi progressi</h1>
+    <p class="text-light-50 mb-0">Traccia peso e misure, osserva l'andamento nel tempo</p>
+  </div>
+
+  <div class="row g-4">
+    <div class="col-lg-4">
+      <div class="ft-card mb-4 ft-sticky">
+        <div class="ft-card-header">
+          <h3><i class="bi bi-plus-circle"></i> Registra peso</h3>
+        </div>
+        <div class="ft-card-body">
+          <form method="post" action="{{ url_for('progress_add_weight') }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <div class="mb-3">
+              <label class="form-label">Data</label>
+              <input type="date" name="date" class="form-control ft-input" required
+                     value="{{ today().isoformat() }}">
+            </div>
+            <div class="mb-3">
+              <label class="form-label">Peso (kg)</label>
+              <input type="number" name="weight" class="form-control ft-input" required
+                     min="35" max="300" step="0.1"
+                     value="{{ current_user.current_weight or '' }}">
+            </div>
+            <div class="mb-3">
+              <label class="form-label">Note <small class="text-light-50">opz.</small></label>
+              <textarea name="note" rows="2" class="form-control ft-input"
+                        placeholder="Dopo cena, dopo allenamento..."></textarea>
+            </div>
+            <button type="submit" class="btn ft-btn-primary w-100 btn-lg">
+              <i class="bi bi-check-lg"></i> Salva peso
+            </button>
+          </form>
+        </div>
+      </div>
+
+      <div class="ft-card ft-sticky">
+        <div class="ft-card-header">
+          <h3><i class="bi bi-rulers"></i> Misure corporee</h3>
+        </div>
+        <div class="ft-card-body">
+          <form method="post" action="{{ url_for('progress_measure') }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <input type="hidden" name="date" value="{{ today().isoformat() }}">
+            <div class="ft-meas-grid">
+              <div class="ft-meas-item">
+                <label>Vita</label>
+                <input type="number" name="waist_cm" step="0.1" min="40" max="200" placeholder="--">
+                <div class="unit">cm</div>
+              </div>
+              <div class="ft-meas-item">
+                <label>Fianchi</label>
+                <input type="number" name="hips_cm" step="0.1" min="40" max="200" placeholder="--">
+                <div class="unit">cm</div>
+              </div>
+              <div class="ft-meas-item">
+                <label>Petto</label>
+                <input type="number" name="chest_cm" step="0.1" min="40" max="200" placeholder="--">
+                <div class="unit">cm</div>
+              </div>
+              <div class="ft-meas-item">
+                <label>Braccio</label>
+                <input type="number" name="arm_cm" step="0.1" min="15" max="80" placeholder="--">
+                <div class="unit">cm</div>
+              </div>
+              <div class="ft-meas-item">
+                <label>Coscia</label>
+                <input type="number" name="thigh_cm" step="0.1" min="20" max="100" placeholder="--">
+                <div class="unit">cm</div>
+              </div>
+            </div>
+            <button type="submit" class="btn ft-btn-primary w-100 mt-3">
+              <i class="bi bi-check-lg"></i> Salva misure
+            </button>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-lg-8">
+      <div class="ft-card mb-4">
+        <div class="ft-card-header">
+          <h3><i class="bi bi-graph-up"></i> Andamento peso</h3>
+          {% if weight_logs|length >= 2 %}
+          <span class="badge ft-badge">{{ weight_logs|length }} misurazioni</span>
+          {% endif %}
+        </div>
+        <div class="ft-card-body">
+          {% if weight_logs|length >= 2 %}
+          <canvas id="weightChartFull" height="120"></canvas>
+          {% else %}
+          <div class="ft-empty-state">
+            <i class="bi bi-graph-up"></i>
+            <p>Registra il peso per almeno 2 giorni per visualizzare il grafico.</p>
+          </div>
+          {% endif %}
+        </div>
+      </div>
+
+      {% if weight_logs %}
+      <div class="row g-3 mb-4">
+        <div class="col-6 col-md-3">
+          <div class="ft-stat-card mini">
+            <div class="ft-stat-card-value">{{ weight_logs[0].weight }}</div>
+            <div class="ft-stat-card-unit">kg iniziali</div>
+          </div>
+        </div>
+        <div class="col-6 col-md-3">
+          <div class="ft-stat-card mini accent">
+            <div class="ft-stat-card-value">{{ weight_logs[-1].weight }}</div>
+            <div class="ft-stat-card-unit">kg attuali</div>
+          </div>
+        </div>
+        <div class="col-6 col-md-3">
+          <div class="ft-stat-card mini success">
+            <div class="ft-stat-card-value">{{ (weight_logs[0].weight - weight_logs[-1].weight)|round(1) }}</div>
+            <div class="ft-stat-card-unit">kg persi</div>
+          </div>
+        </div>
+        <div class="col-6 col-md-3">
+          <div class="ft-stat-card mini warn">
+            <div class="ft-stat-card-value">{{ (weight_logs[-1].weight - current_user.target_weight_kg)|round(1) }}</div>
+            <div class="ft-stat-card-unit">kg all'obiettivo</div>
+          </div>
+        </div>
+      </div>
+      {% endif %}
+
+      {% if measurements %}
+      <div class="ft-card mb-4">
+        <div class="ft-card-header">
+          <h3><i class="bi bi-rulers"></i> Storico misure</h3>
+        </div>
+        <div class="ft-card-body p-0">
+          <table class="ft-meas-table">
+            <thead>
+              <tr><th>Data</th><th>Vita</th><th>Fianchi</th><th>Petto</th><th>Braccio</th><th>Coscia</th></tr>
+            </thead>
+            <tbody>
+              {% for m in measurements|reverse %}
+              <tr>
+                <td>{{ m.date.strftime('%d/%m') }}</td>
+                <td>{{ m.waist_cm or '-' }}</td>
+                <td>{{ m.hips_cm or '-' }}</td>
+                <td>{{ m.chest_cm or '-' }}</td>
+                <td>{{ m.arm_cm or '-' }}</td>
+                <td>{{ m.thigh_cm or '-' }}</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+      {% endif %}
+
+      {% if weight_logs %}
+      <div class="ft-card">
+        <div class="ft-card-header">
+          <h3><i class="bi bi-clock-history"></i> Storico peso completo</h3>
+        </div>
+        <div class="ft-card-body p-0">
+          <div class="ft-history-list">
+            {% for log in weight_logs|reverse %}
+            <div class="ft-history-item">
+              <div class="ft-history-date">{{ log.date.strftime('%d') }} {{ ['gen','feb','mar','apr','mag','giu','lug','ago','set','ott','nov','dic'][log.date.month-1] }} {{ log.date.strftime('%Y') }}</div>
+              <div class="ft-history-weight">{{ log.weight }} kg</div>
+              {% if loop.last %}
+              <span class="badge bg-secondary">Inizio</span>
+              {% elif loop.first %}
+              <span class="badge ft-badge-accent">Attuale</span>
+              {% endif %}
+              {% if log.note %}<div class="ft-history-note"><em>{{ log.note }}</em></div>{% endif %}
+            </div>
+            {% endfor %}
+          </div>
+        </div>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+{% if weight_logs|length >= 2 %}
+<script>
+const labels = [{% for log in weight_logs %}"{{ log.date.strftime('%d/%m/%Y') }}"{% if not loop.last %},{% endif %}{% endfor %}];
+const data = [{% for log in weight_logs %}{{ log.weight }}{% if not loop.last %},{% endif %}{% endfor %}];
+const target = {{ current_user.target_weight_kg }};
+new Chart(document.getElementById('weightChartFull'), {
+  type: 'line',
+  data: {
+    labels: labels,
+    datasets: [
+      {
+        label: 'Peso (kg)',
+        data: data,
+        borderColor: '#ff6b35',
+        backgroundColor: 'rgba(255, 107, 53, 0.15)',
+        borderWidth: 3,
+        fill: true,
+        tension: 0.3,
+        pointBackgroundColor: '#ff6b35',
+        pointBorderColor: '#fff',
+        pointBorderWidth: 2,
+        pointRadius: 5,
+        pointHoverRadius: 7,
+      },
+      {
+        label: 'Obiettivo',
+        data: data.map(() => target),
+        borderColor: '#4f9265',
+        borderWidth: 2,
+        borderDash: [6, 4],
+        pointRadius: 0,
+        fill: false,
+      }
+    ]
+  },
+  options: {
+    responsive: true,
+    plugins: {
+      legend: { labels: { color: '#aaa' } },
+      tooltip: { backgroundColor: '#1a1a1a', padding: 12 }
+    },
+    scales: {
+      y: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#888', callback: v => v + ' kg' } },
+      x: { grid: { display: false }, ticks: { color: '#888' } }
+    }
+  }
+});
+</script>
+{% endif %}
+{% endblock %}

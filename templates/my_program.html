@@ -1,0 +1,112 @@
+{% extends "base.html" %}
+{% block title %}{{ APP_NAME }} - {{ program.name }}{% endblock %}
+{% block content %}
+<div class="container py-4">
+  <a href="{{ url_for('programs') }}" class="btn ft-btn-outline btn-sm mb-3">
+    <i class="bi bi-arrow-left"></i> Programmi
+  </a>
+
+  <div class="d-flex align-items-center gap-3 mb-4">
+    <div class="program-icon" style="background: {{ program.color }}20; color: {{ program.color }}; width: 50px; height: 50px; border-radius: 14px; display: flex; align-items: center; justify-content: center; font-size: 1.5rem;">
+      <i class="bi {{ program.icon }}"></i>
+    </div>
+    <div>
+      <h1 class="fw-bold mb-0">{{ program.name }}</h1>
+      <p class="text-light-50 mb-0">Iniziato {{ enrollment.start_date.strftime('%d/%m/%Y') }}</p>
+    </div>
+  </div>
+
+  <div class="ft-card mb-4">
+    <div class="card-body">
+      <div class="d-flex justify-content-between align-items-center mb-2">
+        <strong>Progresso complessivo</strong>
+        <span>{{ progress.overall_pct|round(0) }}%</span>
+      </div>
+      <div class="ft-progress-bar-wrap mb-2">
+        <div class="ft-progress-bar-fill" style="width: {{ progress.overall_pct|round(0) }}%"></div>
+      </div>
+      <div class="d-flex justify-content-between small text-light-50">
+        <span>Giorno {{ progress.current_day }} di {{ progress.total_days }}</span>
+        <span>Adesione: {{ progress.adherence_pct|round(0) }}%</span>
+        <span>{{ progress.remaining_days }} giorni rimasti</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="row g-4">
+    <div class="col-lg-7">
+      <div class="ft-card">
+        <div class="card-header ft-card-header">
+          <h3><i class="bi bi-list-check"></i> Checklist giornaliera</h3>
+          <span class="badge ft-badge">Oggi</span>
+        </div>
+        <div class="card-body">
+          <div class="d-flex flex-column gap-2">
+            {% for item in checklist %}
+            <div class="d-flex align-items-center gap-3 p-3 rounded-3 {% if item.done %}bg-opacity-10{% endif %}" style="background: var(--bg-card-hover);">
+              <div class="fs-4 {% if item.done %}text-success{% else %}text-light-50{% endif %}">
+                <i class="bi {{ 'check-circle-fill' if item.done else 'circle' }}"></i>
+              </div>
+              <div class="flex-grow-1">
+                <div class="fw-medium">{{ item.label }}</div>
+                <div class="small text-light-50">{{ item.detail }}</div>
+              </div>
+              <i class="bi {{ item.icon }} fs-5 text-light-50"></i>
+            </div>
+            {% endfor %}
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-lg-5">
+      <div class="ft-card mb-4">
+        <div class="card-header ft-card-header">
+          <h3><i class="bi bi-info-circle"></i> Dettagli programma</h3>
+        </div>
+        <div class="card-body">
+          <div class="d-flex justify-content-between py-2 border-bottom border-secondary">
+            <span class="text-light-50">Durata</span>
+            <span>{{ program.duration_days }} giorni</span>
+          </div>
+          <div class="d-flex justify-content-between py-2 border-bottom border-secondary">
+            <span class="text-light-50">Dieta</span>
+            <span>{{ program.diet_type }}</span>
+          </div>
+          <div class="d-flex justify-content-between py-2 border-bottom border-secondary">
+            <span class="text-light-50">Deficit</span>
+            <span>{{ program.deficit_kcal }} kcal</span>
+          </div>
+          <div class="d-flex justify-content-between py-2 border-bottom border-secondary">
+            <span class="text-light-50">Allenamenti/sett</span>
+            <span>{{ program.workout_freq_per_week }}</span>
+          </div>
+          <div class="d-flex justify-content-between py-2 border-bottom border-secondary">
+            <span class="text-light-50">Acqua target</span>
+            <span>{{ program.water_target_ml }}ml</span>
+          </div>
+          <div class="d-flex justify-content-between py-2">
+            <span class="text-light-50">Digiuno</span>
+            <span>{% if program.fasting_hours %}{{ program.fasting_hours }}h{% else %}Non previsto{% endif %}</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="ft-card mb-4">
+        <div class="card-body text-center">
+          <div class="fs-1 fw-bold" style="color: {{ program.color }};">{{ progress.adherence_pct|round(0) }}%</div>
+          <div class="text-light-50">Adesione giornaliera</div>
+          <div class="small text-light-50 mt-1">{{ progress.days_completed }} di {{ progress.days_passed }} giorni completati</div>
+        </div>
+      </div>
+
+      <form method="post" action="{{ url_for('program_unenroll') }}" onsubmit="return confirm('Terminare il programma prima del completamento?');">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <button type="submit" class="btn btn-outline-danger w-100">
+          <i class="bi bi-x-circle"></i> Termina programma
+        </button>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}

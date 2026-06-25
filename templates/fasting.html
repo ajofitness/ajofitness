@@ -1,0 +1,385 @@
+{% extends 'base.html' %}
+{% block title %}Digiuno intermittente - {{ APP_NAME }}{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+  <div class="ft-page-header mb-4">
+    <h1><i class="bi bi-clock"></i> Digiuno intermittente</h1>
+    <p class="text-light-50 mb-0">Traccia le tue finestre di digiuno e scopri i benefici del time-restricted eating</p>
+  </div>
+
+  <div class="row g-4">
+    <div class="col-lg-7">
+      <!-- Timer principale -->
+      <div class="ft-card mb-4" id="fastingTimerCard">
+        <div class="ft-card-header">
+          <h3><i class="bi bi-hourglass-split"></i> Timer digiuno</h3>
+          <span class="badge ft-badge" id="fastingStatusBadge">--</span>
+        </div>
+        <div class="ft-card-body text-center" id="fastingTimerBody">
+          <!-- Timer UI (hidden by default, shown by JS if active fast) -->
+          <div id="fastingActiveUI" style="display:none;">
+            <div class="ft-day-num" style="font-size:3.5rem;" id="fastingTimerDisplay">00:00:00</div>
+            <div class="ft-macro-lbl">trascorsi</div>
+            <div class="mt-2 ft-progress-bar-wrap" style="max-width:400px;margin:0 auto;">
+              <div class="ft-progress-bar-fill" id="fastingProgressBar" style="width:0%"></div>
+            </div>
+            <div class="d-flex justify-content-between small text-light-50 mt-1" style="max-width:400px;margin:0 auto;">
+              <span id="fastingElapsedLabel">0:00</span>
+              <span id="fastingTargetLabel">/ 16:00</span>
+            </div>
+            <div class="mt-3">
+              <button class="btn ft-btn-primary btn-lg" id="btnStopFast">
+                <i class="bi bi-stop-fill"></i> Termina digiuno
+              </button>
+            </div>
+          </div>
+          <!-- Start UI (shown by default, hidden by JS if active fast) -->
+          <div id="fastingStartUI">
+            <div class="ft-empty-state">
+              <i class="bi bi-moon-stars" style="font-size:4rem;opacity:0.3;"></i>
+              <p class="mb-4">Nessun digiuno attivo. Scegli una durata e inizia!</p>
+            </div>
+            <div class="mb-3">
+              <label class="form-label text-light-50 small">Durata preselezionata</label>
+              <div class="row justify-content-center g-2">
+                {% for h in [12, 14, 16, 18, 20, 24, 36, 48, 72] %}
+                <div class="col-4 col-md-1">
+                  <div class="ft-deficit-opt fasting-hours-opt {% if h == 16 %}selected{% endif %}"
+                       data-hours="{{ h }}" onclick="selectFastingHours(this, {{ h }})">
+                    <div class="kcal" style="font-size:1.2rem;">{{ h }}</div>
+                    <div class="label" style="font-size:0.6rem;">ore</div>
+                  </div>
+                </div>
+                {% endfor %}
+              </div>
+            </div>
+            <div class="mb-3">
+              <label class="form-label text-light-50 small">Oppure personalizza</label>
+              <div class="input-group" style="max-width:250px;margin:0 auto;">
+                <input type="number" class="form-control ft-input" id="customFastingHours"
+                       min="1" max="168" step="1" placeholder="es. 48"
+                       oninput="selectCustomFastingHours(this.value)">
+                <span class="input-group-text ft-input" style="border-left:none;">ore</span>
+              </div>
+            </div>
+            <div class="d-flex gap-2 justify-content-center flex-wrap">
+              <button class="btn ft-btn-primary btn-lg" id="btnStartFast">
+                <i class="bi bi-play-fill"></i> Inizia digiuno
+              </button>
+            </div>
+            <div class="mt-2 small text-light-50">
+              <i class="bi bi-info-circle"></i>
+              <span id="fastingPresetLabel">16:8 — 16 ore di digiuno, 8 ore di finestra alimentare</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Storico ultimi 30 digiuni -->
+      <div class="ft-card">
+        <div class="ft-card-header">
+          <h3><i class="bi bi-clock-history"></i> Storico digiuni</h3>
+          <span class="badge ft-badge">{{ completed_count }} completati</span>
+        </div>
+        <div class="ft-card-body p-0">
+          {% if history %}
+          <div class="ft-history-list">
+            {% for f in history %}
+            <div class="ft-history-item">
+              <div class="ft-history-date">{{ f.date.strftime('%d/%m/%Y') }}</div>
+              <div class="ft-history-weight">{{ f.duration_hours }}h</div>
+              <div class="ft-history-note">{{ f.planned_hours|round(0) }}h pianificate</div>
+              <span class="badge ft-badge">Completato</span>
+              <button class="btn ft-btn-icon-danger btn-sm" onclick="deleteFasting({{ f.id }})" title="Elimina">
+                <i class="bi bi-trash"></i>
+              </button>
+            </div>
+            {% endfor %}
+          </div>
+          {% else %}
+          <div class="ft-empty-state">
+            <i class="bi bi-emoji-neutral"></i>
+            <p>Nessun digiuno completato. Inizia il primo!</p>
+          </div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+
+    <div class="col-lg-5">
+      <!-- Info e benefici -->
+      <div class="ft-card mb-4">
+        <div class="ft-card-header">
+          <h3><i class="bi bi-info-circle"></i> Durate e benefici</h3>
+        </div>
+        <div class="ft-card-body p-0">
+          <div class="ft-history-list">
+            <div class="ft-history-item">
+              <div class="ft-meal-name" style="min-width:50px;">12h</div>
+              <div class="ft-workout-meta flex-fill">Ideale per principianti. Digiuno notturno standard. Riduce l'insulina notturna.</div>
+            </div>
+            <div class="ft-history-item">
+              <div class="ft-meal-name" style="min-width:50px;">14h</div>
+              <div class="ft-workout-meta flex-fill">Buon compromesso. Avvio della chetosi leggera. Migliora la sensibilità insulinica.</div>
+            </div>
+            <div class="ft-history-item" style="border-left:3px solid var(--accent);">
+              <div class="ft-meal-name" style="min-width:50px;color:var(--accent);">16h</div>
+              <div class="ft-workout-meta flex-fill">Il più studiato (16:8). Attivazione dell'autofagia. Riduzione massa grassa e miglioramento parametri metabolici.</div>
+            </div>
+            <div class="ft-history-item">
+              <div class="ft-meal-name" style="min-width:50px;">18h</div>
+              <div class="ft-workout-meta flex-fill">Intermedio. Aumento della chetosi. Finestra alimentare 6h, ideale per 2 pasti.</div>
+            </div>
+            <div class="ft-history-item">
+              <div class="ft-meal-name" style="min-width:50px;">20h</div>
+              <div class="ft-workout-meta flex-fill">OMAD (One Meal A Day). Chetosi stabile. Massima autofagia. Per utenti avanzati.</div>
+            </div>
+            <div class="ft-history-item">
+              <div class="ft-meal-name" style="min-width:50px;">24h</div>
+              <div class="ft-workout-meta flex-fill">Digiuno giornaliero completo. Reset insulinico. Riduzione infiammazione sistemica.</div>
+            </div>
+            <div class="ft-history-item">
+              <div class="ft-meal-name" style="min-width:50px;">36h</div>
+              <div class="ft-workout-meta flex-fill">Digiuno prolungato. Chetosi profonda. Incremento dell'autofagia cellulare (solo utenti esperti).</div>
+            </div>
+            <div class="ft-history-item">
+              <div class="ft-meal-name" style="min-width:50px;">48h</div>
+              <div class="ft-workout-meta flex-fill">Digiuno di 2 giorni. Massima chetosi e riparazione cellulare. Potenziali benefici cognitivi.</div>
+            </div>
+            <div class="ft-history-item">
+              <div class="ft-meal-name" style="min-width:50px;">72h+</div>
+              <div class="ft-workout-meta flex-fill">Digiuno lungo. Solo sotto supervisione medica. Rigenerazione del sistema immunitario (studi preliminari).</div>
+            </div>
+          </div>
+          <div class="p-3 small text-light-50 border-top border-secondary">
+            <i class="bi bi-info-circle"></i>
+            Durante il digiuno sono concessi: acqua, tè e caffè senza zucchero. Oltre le 24h, si consiglia supervisione medica.
+          </div>
+        </div>
+      </div>
+
+      <!-- Statistiche -->
+      <div class="ft-card mb-4">
+        <div class="ft-card-header">
+          <h3><i class="bi bi-bar-chart"></i> Le tue statistiche</h3>
+        </div>
+        <div class="ft-card-body">
+          {% if completed_count > 0 %}
+          {% set total_hours = history|sum(attribute='duration_hours') %}
+          {% set avg_hours = (total_hours / completed_count)|round(1) %}
+          <div class="row text-center g-2">
+            <div class="col-4">
+              <div class="ft-stat-card mini" style="margin:0;">
+                <div class="ft-progress-num" style="font-size:1.5rem;">{{ completed_count }}</div>
+                <div class="ft-card-unit text-light-50" style="font-size:0.75rem;">digiuni</div>
+              </div>
+            </div>
+            <div class="col-4">
+              <div class="ft-stat-card mini" style="margin:0;">
+                <div class="ft-progress-num" style="font-size:1.5rem;">{{ total_hours|round(0) }}</div>
+                <div class="ft-card-unit text-light-50" style="font-size:0.75rem;">ore totali</div>
+              </div>
+            </div>
+            <div class="col-4">
+              <div class="ft-stat-card mini" style="margin:0;">
+                <div class="ft-progress-num" style="font-size:1.5rem;">{{ avg_hours }}</div>
+                <div class="ft-card-unit text-light-50" style="font-size:0.75rem;">media ore</div>
+              </div>
+            </div>
+          </div>
+          {% else %}
+          <p class="text-light-50 small mb-0 text-center">Completa il primo digiuno per vedere le statistiche.</p>
+          {% endif %}
+        </div>
+      </div>
+
+      <!-- Badge digiuno -->
+      <div class="ft-card">
+        <div class="ft-card-header">
+          <h3><i class="bi bi-trophy"></i> Badge digiuno</h3>
+        </div>
+        <div class="ft-card-body">
+          <div class="ft-badge-grid">
+            {% set fasting_badges = {
+              'fasting_3': {'name': 'Digiunatore', 'desc': '3 digiuni', 'icon': '⏳'},
+              'fasting_7': {'name': 'Esperto', 'desc': '7 digiuni', 'icon': '⏰'},
+              'fasting_14': {'name': 'Maestro', 'desc': '14 digiuni', 'icon': '⌛'},
+              'fasting_30': {'name': 'Monaco', 'desc': '30 digiuni', 'icon': '🧘'},
+            } %}
+            {% for key, info in fasting_badges.items() %}
+            {% set earned = false %}
+            {% for b in badge_details %}{% if b.type == key %}{% set earned = true %}{% endif %}{% endfor %}
+            <div class="ft-badge-item" title="{{ info.desc }}" style="opacity:{{ '1' if earned else '0.35' }}">
+              <span class="ft-badge-icon">{{ info.icon }}</span>
+              <span class="ft-badge-name">{{ info.name }}</span>
+            </div>
+            {% endfor %}
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+// ===== Selezione durata digiuno =====
+function selectFastingHours(el, hours) {
+  document.querySelectorAll('.fasting-hours-opt').forEach(function(opt) {
+    opt.classList.toggle('selected', opt === el);
+  });
+  document.getElementById('customFastingHours').value = '';
+  updatePresetLabel(hours);
+}
+
+function selectCustomFastingHours(val) {
+  document.querySelectorAll('.fasting-hours-opt').forEach(function(opt) {
+    opt.classList.remove('selected');
+  });
+  var h = parseInt(val) || 0;
+  if (h > 0) updatePresetLabel(h);
+}
+
+function updatePresetLabel(hours) {
+  var labels = {
+    12: '12:12 — Ideale per principianti. Digiuno notturno standard (12h digiuno, 12h finestra)',
+    14: '14:10 — Buon compromesso. Avvio della chetosi leggera (14h digiuno, 10h finestra)',
+    16: '16:8 — Il più comune e studiato. Attiva l\'autofagia (16h digiuno, 8h finestra)',
+    18: '18:6 — Intermedio. Aumento della chetosi (18h digiuno, 6h finestra)',
+    20: '20:4 — OMAD. Chetosi stabile, massima autofagia (20h digiuno, 4h finestra)',
+    24: '24 ore — Reset insulinico, riduzione infiammazione',
+    36: '36 ore — Chetosi profonda, autofagia cellulare (utenti esperti)',
+    48: '48 ore — Massima chetosi, riparazione cellulare, benefici cognitivi',
+    72: '72 ore — Solo sotto controllo medico. Rigenerazione immunitaria',
+  };
+  document.getElementById('fastingPresetLabel').textContent = labels[hours] || hours + ' ore di digiuno personalizzato';
+}
+
+function getSelectedHours() {
+  var preset = document.querySelector('.fasting-hours-opt.selected');
+  if (preset) return parseInt(preset.dataset.hours);
+  var custom = parseInt(document.getElementById('customFastingHours').value);
+  if (custom > 0 && custom <= 168) return custom;
+  return 16;
+}
+
+// ===== Stato iniziale via API =====
+document.addEventListener('DOMContentLoaded', function() {
+  fetch('/api/fasting/status')
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      if (data.active) {
+        showTimer(data.start_time, data.planned_hours);
+      }
+    })
+    .catch(function() {});
+});
+
+var timerInterval = null;
+
+function showTimer(startTime, plannedHours) {
+  document.getElementById('fastingStartUI').style.display = 'none';
+  document.getElementById('fastingActiveUI').style.display = 'block';
+  document.getElementById('fastingStatusBadge').textContent = 'In corso';
+  document.getElementById('fastingTargetLabel').textContent = '/ ' + plannedHours + ':00';
+
+  var display = document.getElementById('fastingTimerDisplay');
+  var progressBar = document.getElementById('fastingProgressBar');
+  var elapsedLabel = document.getElementById('fastingElapsedLabel');
+
+  function pad(n) { return n < 10 ? '0' + n : '' + n; }
+
+  function updateTimer() {
+    var now = new Date();
+    var start = new Date(startTime + 'Z');
+    var elapsedMs = now - start;
+    if (elapsedMs < 0) elapsedMs = 0;
+    var elapsedSec = Math.floor(elapsedMs / 1000);
+    var hours = Math.floor(elapsedSec / 3600);
+    var mins = Math.floor((elapsedSec % 3600) / 60);
+    var secs = elapsedSec % 60;
+    display.textContent = pad(hours) + ':' + pad(mins) + ':' + pad(secs);
+
+    var elapsedH = elapsedMs / 3600000;
+    var pct = Math.min(100, (elapsedH / plannedHours) * 100);
+    progressBar.style.width = pct + '%';
+    elapsedLabel.textContent = hours + ':' + pad(mins);
+
+    if (pct >= 100) {
+      progressBar.style.background = 'linear-gradient(90deg, var(--success), #6abf8a)';
+      document.getElementById('fastingStatusBadge').textContent = 'Obiettivo raggiunto!';
+    }
+  }
+
+  updateTimer();
+  timerInterval = setInterval(updateTimer, 1000);
+}
+
+// ===== Avvia digiuno =====
+document.getElementById('btnStartFast').addEventListener('click', function() {
+  var hours = getSelectedHours();
+  if (hours < 1 || hours > 168) { alert('Durata non valida (1-168 ore)'); return; }
+  var btn = this;
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Avvio...';
+
+  fetch('/api/fasting/start', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({hours: hours}),
+  }).then(function(r) { return r.json(); }).then(function(data) {
+    if (data.ok) {
+      showTimer(data.start_time, data.planned_hours);
+    } else {
+      alert(data.error || 'Errore');
+      btn.disabled = false;
+      btn.innerHTML = '<i class="bi bi-play-fill"></i> Inizia digiuno';
+    }
+  }).catch(function() {
+    alert('Errore di rete');
+    btn.disabled = false;
+    btn.innerHTML = '<i class="bi bi-play-fill"></i> Inizia digiuno';
+  });
+});
+
+// ===== Termina digiuno =====
+document.getElementById('btnStopFast').addEventListener('click', function() {
+  if (!confirm('Terminare il digiuno ora?')) return;
+  var btn = this;
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span>...';
+
+  fetch('/api/fasting/stop', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+  }).then(function(r) { return r.json(); }).then(function(data) {
+    if (data.ok) {
+      if (timerInterval) clearInterval(timerInterval);
+      location.reload();
+    } else {
+      alert(data.error || 'Errore');
+      btn.disabled = false;
+      btn.innerHTML = '<i class="bi bi-stop-fill"></i> Termina digiuno';
+    }
+  }).catch(function() {
+    alert('Errore di rete');
+    btn.disabled = false;
+    btn.innerHTML = '<i class="bi bi-stop-fill"></i> Termina digiuno';
+  });
+});
+
+// ===== Elimina digiuno =====
+function deleteFasting(id) {
+  if (!confirm('Eliminare questo digiuno dallo storico?')) return;
+  fetch('/api/fasting/delete/' + id, {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+  }).then(function(r) { return r.json(); }).then(function(data) {
+    if (data.ok) location.reload();
+    else alert(data.error || 'Errore');
+  }).catch(function() { alert('Errore di rete'); });
+}
+</script>
+{% endblock %}
