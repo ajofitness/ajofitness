@@ -59,9 +59,8 @@ def _migrate_schema(engine):
     with engine.connect() as conn:
         conn.execute(sa.text("UPDATE users SET is_admin = FALSE WHERE is_demo = TRUE"))
         conn.execute(sa.text("UPDATE users SET is_admin = TRUE, approved = TRUE WHERE email = 'roberto.deliperi@gmail.com'"))
+        conn.commit()
         logger.info('User roberto.deliperi@gmail.com set as admin')
-                conn.commit()
-                logger.info(f'User {row[1]} set as admin')
 
 
 _IT_DAYS = ['lunedì', 'martedì', 'mercoledì', 'giovedì', 'venerdì', 'sabato', 'domenica']
