@@ -73,7 +73,7 @@
                 -
                 {% endif %}
               </td>
-              <td class="text-center">{{ "{:.2f}".format(d.distance_km) if d.distance_km is not None else '-' }}</td>
+              <td class="text-center">{{ "{:.2f}".format(d.distance_km) }}</td>
               <td class="text-center">
                 {% set day_wos = workouts.get(d.date, []) %}
                 {% if day_wos %}
