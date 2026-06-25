@@ -187,30 +187,38 @@ def fetch_calories(access_token, start_date, end_date):
 
 
 def fetch_weight(access_token, start_date, end_date):
-    body = {
-        'aggregateBy': [{
-            'dataTypeName': 'com.google.weight',
-            'dataSourceId': 'derived:com.google.weight:com.google.android.gms:merge_weight',
-        }],
-        'bucketByTime': {'durationMillis': 86400000},
-        'startTimeMillis': int(datetime.combine(start_date, datetime.min.time()).timestamp() * 1000),
-        'endTimeMillis': int(datetime.combine(end_date, datetime.max.time()).timestamp() * 1000),
-    }
-    resp = requests.post(
-        f'{GOOGLE_FIT_BASE}/dataset:aggregate',
-        headers=_headers(access_token),
-        json=body,
-    )
-    if resp.status_code != 200:
-        return {}
-    data = resp.json()
+    data_sources = [
+        'derived:com.google.weight:com.google.android.gms:merge_weight',
+        'derived:com.google.weight:com.google.android.gms:estimated_weight',
+        'derived:com.google.weight:com.google.android.gms:from_health_platform',
+    ]
     results = {}
-    for bucket in data.get('bucket', []):
-        day = _date_from_nanos(int(bucket['startTimeMillis']) * 1e6)
-        for dataset in bucket.get('dataset', []):
-            for point in dataset.get('point', []):
-                if point.get('value') and 'fpVal' in point['value'][0]:
-                    results[day] = round(point['value'][0]['fpVal'], 1)
+    for ds in data_sources:
+        body = {
+            'aggregateBy': [{
+                'dataTypeName': 'com.google.weight',
+                'dataSourceId': ds,
+            }],
+            'bucketByTime': {'durationMillis': 86400000},
+            'startTimeMillis': int(datetime.combine(start_date, datetime.min.time()).timestamp() * 1000),
+            'endTimeMillis': int(datetime.combine(end_date, datetime.max.time()).timestamp() * 1000),
+        }
+        resp = requests.post(
+            f'{GOOGLE_FIT_BASE}/dataset:aggregate',
+            headers=_headers(access_token),
+            json=body,
+        )
+        if resp.status_code != 200:
+            continue
+        data = resp.json()
+        for bucket in data.get('bucket', []):
+            day = _date_from_nanos(int(bucket['startTimeMillis']) * 1e6)
+            for dataset in bucket.get('dataset', []):
+                for point in dataset.get('point', []):
+                    if point.get('value') and 'fpVal' in point['value'][0]:
+                        results[day] = round(point['value'][0]['fpVal'], 1)
+        if results:
+            break
     return results
 
 
