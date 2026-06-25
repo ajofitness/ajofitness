@@ -515,9 +515,10 @@ def sync_google_fit(user, db_session):
                           'derived:com.google.step_count.delta:com.google.android.fit:realme:RMX2170:72a960b:top_level',
                           'derived:com.google.step_count.delta:com.nike.plusgps:STEP_COUNT_DELTA']:
             s = fetch_aggregate(token, 'com.google.step_count.delta', src_param, start_date, today, 'int')
-            device = src_param.split(':')[4]
+            parts = src_param.split(':')
+            device = parts[4] if len(parts) > 4 else parts[3]
             if s:
-                logger.info(f'  [{device} top_level] steps: {s}')
+                logger.info(f'  [{device}] steps: {s}')
             for day, steps in s.items():
                 steps_data[day] = max(steps_data.get(day, 0), steps)
         logger.info(f'Steps data final ({len(steps_data)} days): {steps_data}')
