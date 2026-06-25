@@ -57,19 +57,9 @@ def _migrate_schema(engine):
                 logger.info(f'Added column {col} to users table')
 
     with engine.connect() as conn:
-        result = conn.execute(sa.text("SELECT id, email FROM users WHERE (is_demo = FALSE OR is_demo IS NULL) AND is_admin = FALSE ORDER BY id LIMIT 1"))
-        row = result.fetchone()
-        if row:
-            conn.execute(sa.text('UPDATE users SET is_admin = TRUE, approved = TRUE WHERE id = :uid'), {'uid': row[0]})
-            logger.info(f'User {row[1]} set as admin')
-        else:
-            result = conn.execute(sa.text("SELECT id, email FROM users WHERE is_admin = TRUE LIMIT 1"))
-            if not result.fetchone():
-                result = conn.execute(sa.text("SELECT id, email FROM users WHERE is_demo = TRUE ORDER BY id LIMIT 1"))
-                row = result.fetchone()
-                if row:
-                    conn.execute(sa.text('UPDATE users SET is_admin = TRUE, approved = TRUE WHERE id = :uid'), {'uid': row[0]})
-                    logger.info(f'User {row[1]} (demo) set as admin')
+        conn.execute(sa.text("UPDATE users SET is_admin = FALSE WHERE is_demo = TRUE"))
+        conn.execute(sa.text("UPDATE users SET is_admin = TRUE, approved = TRUE WHERE email = 'roberto.deliperi@gmail.com'"))
+        logger.info('User roberto.deliperi@gmail.com set as admin')
                 conn.commit()
                 logger.info(f'User {row[1]} set as admin')
 
