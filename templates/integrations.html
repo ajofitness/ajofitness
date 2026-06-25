@@ -51,7 +51,7 @@
               </form>
             </div>
             {% if last_sync %}
-            <p class="small text-light-50 mt-2 mb-0">Ultima sincronizzazione: {{ last_sync.strftime('%d/%m/%Y %H:%M') }}</p>
+            <p class="small text-light-50 mt-2 mb-0">Ultima sincronizzazione: {{ (last_sync|localtime).strftime('%d/%m/%Y %H:%M') }}</p>
             {% endif %}
             {% else %}
             {% if config.GOOGLE_CLIENT_ID %}
@@ -106,7 +106,7 @@
                 <div class="small text-light-50">{{ log.message or '' }}</div>
               </div>
               <div class="small text-light-50 text-end">
-                {{ log.started_at.strftime('%d/%m %H:%M') if log.started_at else '' }}
+                {{ (log.started_at|localtime).strftime('%d/%m %H:%M') if log.started_at else '' }}
               </div>
             </div>
             {% endfor %}

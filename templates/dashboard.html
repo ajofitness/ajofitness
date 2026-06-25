@@ -363,7 +363,7 @@
               <i class="bi bi-google text-success"></i>
               <span class="small">Google Fit</span>
               {% if current_user.last_sync_at %}
-              <span class="small text-light-50">({{ current_user.last_sync_at.strftime('%H:%M') }})</span>
+              <span class="small text-light-50">({{ (current_user.last_sync_at|localtime).strftime('%H:%M') }})</span>
               {% endif %}
             </div>
             <form method="post" action="{{ url_for('sync_google_fit_route') }}" class="m-0">

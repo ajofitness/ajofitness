@@ -90,6 +90,13 @@ def create_app():
     def load_user(user_id):
         return User.query.get(int(user_id))
 
+    @app.template_filter('localtime')
+    def to_localtime(dt):
+        from datetime import timezone as dt_tz, timedelta as dt_td
+        if dt and dt.tzinfo is None:
+            return dt.replace(tzinfo=dt_tz.utc).astimezone(dt_tz(dt_td(hours=2)))
+        return dt
+
     @app.context_processor
     def inject_globals():
         return {
@@ -424,9 +431,10 @@ def create_app():
     def integrations():
         from models import SyncLog
         sync_logs = SyncLog.query.filter_by(user_id=current_user.id).order_by(SyncLog.started_at.desc()).limit(10).all()
+        last_sync = current_user.last_sync_at
         return render_template('integrations.html',
                                has_google=bool(current_user.google_access_token),
-                               last_sync=current_user.last_sync_at,
+                               last_sync=last_sync,
                                sync_logs=sync_logs)
 
     @app.route('/auth/google')
