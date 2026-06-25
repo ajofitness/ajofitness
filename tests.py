@@ -2,7 +2,10 @@ import os
 import sys
 import tempfile
 import pytest
-from datetime import date
+from datetime import date, datetime, timezone
+
+def utcnow():
+    return datetime.now(timezone.utc).replace(tzinfo=None)
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
@@ -451,7 +454,7 @@ def test_fasting_start_stop(client, app):
         db.session.add(WeightLog(user_id=user.id, weight=80, date=date.today()))
         db.session.commit()
         # Create a fast in the past so duration > 0
-        past = datetime.utcnow() - timedelta(hours=2)
+        past = utcnow() - timedelta(hours=2)
         fe = FastingEntry(user_id=user.id, date=date.today(), start_time=past, planned_hours=16)
         db.session.add(fe)
         db.session.commit()
@@ -500,7 +503,7 @@ def test_fasting_badge_3(app, db):
         user.set_password('p')
         db.session.add(user)
         db.session.flush()
-        now = datetime.utcnow()
+        now = utcnow()
         for i in range(3):
             db.session.add(FastingEntry(
                 user_id=user.id, date=date.today(),

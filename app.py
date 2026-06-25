@@ -12,7 +12,7 @@ from flask_wtf.csrf import CSRFProtect, generate_csrf
 from sqlalchemy import desc, func
 
 from config import Config
-from models import db, User, WeightLog, Food, CustomFood, MealEntry, WaterEntry, Measurement, WorkoutEntry, Goal, Badge, ProgressPhoto, FastingEntry, Program, ProgramEnrollment
+from models import db, User, WeightLog, Food, CustomFood, MealEntry, WaterEntry, Measurement, WorkoutEntry, Goal, Badge, ProgressPhoto, FastingEntry, Program, ProgramEnrollment, utcnow
 from nutrition import (
     build_plan, calculate_bmr, calculate_tdee, calculate_bmi, bmi_category,
     calories_burned, ACTIVITY_LABELS, ACTIVITY_METS, ACTIVITY_LABELS_IT,
@@ -455,7 +455,7 @@ def create_app():
             tokens = exchange_code(code)
             current_user.google_access_token = tokens['access_token']
             current_user.google_refresh_token = tokens.get('refresh_token', current_user.google_refresh_token)
-            current_user.google_token_expiry = datetime.utcnow() + timedelta(seconds=tokens.get('expires_in', 3600))
+            current_user.google_token_expiry = utcnow() + timedelta(seconds=tokens.get('expires_in', 3600))
             db.session.commit()
             flash('Google Fit collegato con successo!', 'success')
         except ValueError as e:
@@ -1035,7 +1035,7 @@ def create_app():
         entry = FastingEntry(
             user_id=current_user.id,
             date=date.today(),
-            start_time=datetime.utcnow(),
+            start_time=utcnow(),
             planned_hours=planned_hours,
         )
         db.session.add(entry)
@@ -1056,7 +1056,7 @@ def create_app():
         if not active:
             return jsonify({'ok': False, 'error': 'Nessun digiuno attivo'}), 400
 
-        now = datetime.utcnow()
+        now = utcnow()
         active.end_time = now
         active.completed = True
         db.session.commit()
@@ -1072,7 +1072,7 @@ def create_app():
         ).first()
         if not active:
             return jsonify({'active': False})
-        elapsed = (datetime.utcnow() - active.start_time).total_seconds() / 3600
+        elapsed = (utcnow() - active.start_time).total_seconds() / 3600
         remaining = max(0, active.planned_hours - elapsed)
         return jsonify({
             'active': True,

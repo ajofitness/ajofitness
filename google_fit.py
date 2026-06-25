@@ -222,7 +222,7 @@ def map_activity_type(activity_type):
 
 def sync_google_fit(user, db_session):
     from datetime import date, timedelta
-    from models import WorkoutEntry, WeightLog, SyncLog
+    from models import WorkoutEntry, WeightLog, SyncLog, utcnow
     import logging
 
     logger = logging.getLogger('ajo.sync')
@@ -230,7 +230,7 @@ def sync_google_fit(user, db_session):
     start_date = today - timedelta(days=7)
     stats = {'workouts': 0, 'weights': 0, 'steps': 0}
 
-    now = datetime.utcnow()
+    now = utcnow()
     log = SyncLog(user_id=user.id, provider='google_fit', status='running', started_at=now)
     db_session.add(log)
     db_session.flush()
@@ -238,10 +238,10 @@ def sync_google_fit(user, db_session):
     try:
         token = None
         if user.google_access_token and user.google_token_expiry:
-            if datetime.utcnow() >= user.google_token_expiry and user.google_refresh_token:
+            if utcnow() >= user.google_token_expiry and user.google_refresh_token:
                 new_tokens = refresh_access_token(user.google_refresh_token)
                 user.google_access_token = new_tokens['access_token']
-                user.google_token_expiry = datetime.utcnow() + timedelta(seconds=new_tokens.get('expires_in', 3600))
+                user.google_token_expiry = utcnow() + timedelta(seconds=new_tokens.get('expires_in', 3600))
                 if 'refresh_token' in new_tokens:
                     user.google_refresh_token = new_tokens['refresh_token']
                 db_session.commit()
@@ -290,7 +290,7 @@ def sync_google_fit(user, db_session):
             db_session.add(wo)
             stats['workouts'] += 1
 
-        user.last_sync_at = datetime.utcnow()
+        user.last_sync_at = utcnow()
         log.status = 'success'
         log.message = f'Importati {stats["workouts"]} allenamenti, {stats["weights"]} pesi'
         log.workouts_imported = stats['workouts']
@@ -300,7 +300,7 @@ def sync_google_fit(user, db_session):
     except Exception as e:
         log.status = 'error'
         log.message = str(e)
-        log.completed_at = datetime.utcnow()
+        log.completed_at = utcnow()
         db_session.commit()
         logger.error(f'Google Fit sync error for user {user.id}: {e}')
 

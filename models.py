@@ -1,9 +1,13 @@
-from datetime import datetime, date
+from datetime import datetime, date, timezone
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import UserMixin
 from werkzeug.security import generate_password_hash, check_password_hash
 
 db = SQLAlchemy()
+
+
+def utcnow():
+    return datetime.now(timezone.utc).replace(tzinfo=None)
 
 
 class User(UserMixin, db.Model):
@@ -20,7 +24,7 @@ class User(UserMixin, db.Model):
     target_weight_kg = db.Column(db.Float, nullable=False, default=75.0)
     deficit_kcal = db.Column(db.Integer, nullable=False, default=500)
     start_date = db.Column(db.Date, nullable=False, default=date.today)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=utcnow)
     is_demo = db.Column(db.Boolean, default=False)
     onboarding_done = db.Column(db.Boolean, default=False)
     dark_mode = db.Column(db.Boolean, default=True)
@@ -92,7 +96,7 @@ class WeightLog(db.Model):
     weight = db.Column(db.Float, nullable=False)
     date = db.Column(db.Date, nullable=False, default=date.today, index=True)
     note = db.Column(db.String(200))
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=utcnow)
 
     __table_args__ = (db.UniqueConstraint('user_id', 'date', name='_user_date_uc'),)
 
@@ -124,7 +128,7 @@ class CustomFood(db.Model):
     fat_g = db.Column(db.Float, nullable=False, default=0)
     fiber_g = db.Column(db.Float, nullable=False, default=0)
     default_portion_g = db.Column(db.Float, nullable=False, default=100)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=utcnow)
 
 
 class MealEntry(db.Model):
@@ -137,7 +141,7 @@ class MealEntry(db.Model):
     quantity_g = db.Column(db.Float, nullable=False)
     meal_type = db.Column(db.String(20), nullable=False)
     date = db.Column(db.Date, nullable=False, default=date.today, index=True)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=utcnow)
 
     food = db.relationship('Food', foreign_keys=[food_id])
     custom_food = db.relationship('CustomFood', foreign_keys=[custom_food_id])
@@ -190,7 +194,7 @@ class WaterEntry(db.Model):
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
     amount_ml = db.Column(db.Integer, nullable=False)
     date = db.Column(db.Date, nullable=False, default=date.today, index=True)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=utcnow)
 
 
 class Measurement(db.Model):
@@ -205,7 +209,7 @@ class Measurement(db.Model):
     arm_cm = db.Column(db.Float, nullable=True)
     thigh_cm = db.Column(db.Float, nullable=True)
     note = db.Column(db.String(200))
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=utcnow)
 
     __table_args__ = (db.UniqueConstraint('user_id', 'date', name='_meas_user_date_uc'),)
 
@@ -222,7 +226,7 @@ class WorkoutEntry(db.Model):
     calories_burned = db.Column(db.Float, nullable=False, default=0)
     date = db.Column(db.Date, nullable=False, default=date.today, index=True)
     note = db.Column(db.String(200))
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=utcnow)
 
 
 class Goal(db.Model):
@@ -235,7 +239,7 @@ class Goal(db.Model):
     current = db.Column(db.Float, nullable=False, default=0)
     week_start = db.Column(db.Date, nullable=False, default=date.today)
     is_active = db.Column(db.Boolean, default=True)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=utcnow)
 
 
 class Badge(db.Model):
@@ -244,7 +248,7 @@ class Badge(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
     badge_type = db.Column(db.String(40), nullable=False)
-    earned_at = db.Column(db.DateTime, default=datetime.utcnow)
+    earned_at = db.Column(db.DateTime, default=utcnow)
     __table_args__ = (db.UniqueConstraint('user_id', 'badge_type', name='_user_badge_uc'),)
 
 
@@ -256,7 +260,7 @@ class ProgressPhoto(db.Model):
     date = db.Column(db.Date, nullable=False, default=date.today)
     photo_front = db.Column(db.String(256), nullable=True)
     photo_side = db.Column(db.String(256), nullable=True)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=utcnow)
 
 
 class FastingEntry(db.Model):
@@ -269,7 +273,7 @@ class FastingEntry(db.Model):
     end_time = db.Column(db.DateTime, nullable=True)
     planned_hours = db.Column(db.Float, nullable=False, default=16)
     completed = db.Column(db.Boolean, default=False)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=utcnow)
 
     @property
     def duration_hours(self):
@@ -281,7 +285,7 @@ class FastingEntry(db.Model):
     def progress_pct(self):
         if self.end_time:
             return 100
-        elapsed = (datetime.utcnow() - self.start_time).total_seconds() / 3600
+        elapsed = (utcnow() - self.start_time).total_seconds() / 3600
         return min(100, round(elapsed / self.planned_hours * 100, 0))
 
 
@@ -304,7 +308,7 @@ class Program(db.Model):
     icon = db.Column(db.String(50), nullable=True, default='bi-star')
     is_active = db.Column(db.Boolean, default=True)
     order = db.Column(db.Integer, default=0)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=utcnow)
 
     enrollments = db.relationship('ProgramEnrollment', backref='program', lazy='dynamic',
                                   cascade='all, delete-orphan')
@@ -324,7 +328,7 @@ class ProgramEnrollment(db.Model):
     is_active = db.Column(db.Boolean, default=True)
     completed = db.Column(db.Boolean, default=False)
     current_day = db.Column(db.Integer, default=1)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=utcnow)
 
     user = db.relationship('User', backref=db.backref('program_enrollments', lazy='dynamic',
                                                         cascade='all, delete-orphan'))
@@ -343,7 +347,7 @@ class SyncLog(db.Model):
     message = db.Column(db.Text, nullable=True)
     workouts_imported = db.Column(db.Integer, default=0)
     weight_logs_imported = db.Column(db.Integer, default=0)
-    started_at = db.Column(db.DateTime, default=datetime.utcnow)
+    started_at = db.Column(db.DateTime, default=utcnow)
     completed_at = db.Column(db.DateTime, nullable=True)
 
     user = db.relationship('User', backref=db.backref('sync_logs', lazy='dynamic',
