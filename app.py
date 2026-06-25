@@ -582,6 +582,21 @@ def create_app():
             pass
         return redirect(url_for('integrations'))
 
+    @app.route('/api/sync/google-fit/clear', methods=['POST'])
+    @login_required
+    def clear_google_fit_data():
+        from models import DailyActivity, SyncLog, WorkoutEntry
+        DailyActivity.query.filter_by(user_id=current_user.id, source='google_fit').delete()
+        SyncLog.query.filter_by(user_id=current_user.id, provider='google_fit').delete()
+        WorkoutEntry.query.filter(
+            WorkoutEntry.user_id == current_user.id,
+            WorkoutEntry.note.like('Google Fit:%'),
+        ).delete(
+            synchronize_session='fetch')
+        db.session.commit()
+        flash('Dati Google Fit cancellati. Ora puoi risincronizzare da zero.', 'success')
+        return redirect(url_for('integrations'))
+
     @app.route('/water/add', methods=['POST'])
     @login_required
     def water_add():
