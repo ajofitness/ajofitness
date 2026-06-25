@@ -186,12 +186,24 @@ def fetch_calories(access_token, start_date, end_date):
     return results
 
 
+def _find_weight_data_sources(access_token):
+    resp = requests.get(
+        f'{GOOGLE_FIT_BASE}/dataSources',
+        headers=_headers(access_token),
+        params={'dataTypeName': 'com.google.weight'},
+    )
+    if resp.status_code != 200:
+        return []
+    return [ds['dataStreamId'] for ds in resp.json().get('dataSource', [])
+            if ds.get('dataStreamId') and 'merge_weight' in ds['dataStreamId']]
+
+
 def fetch_weight(access_token, start_date, end_date):
-    data_sources = [
-        'derived:com.google.weight:com.google.android.gms:merge_weight',
-        'derived:com.google.weight:com.google.android.gms:estimated_weight',
-        'derived:com.google.weight:com.google.android.gms:from_health_platform',
-    ]
+    data_sources = _find_weight_data_sources(access_token)
+    if not data_sources:
+        data_sources = [
+            'derived:com.google.weight:com.google.android.gms:merge_weight',
+        ]
     results = {}
     for ds in data_sources:
         body = {
