@@ -492,7 +492,7 @@ def sync_google_fit(user, db_session):
             stats['workouts'] += 1
 
         # Daily aggregates: steps, calories, distance, heart_rate
-        # Try raw watch dataset first, then all derived sources
+        # Log each step source individually for debugging
         watch_keyword = os.environ.get('WATCH_DATA_SOURCE', 'com.yc.gloryfit')
         step_sources = list_data_sources(token, 'com.google.step_count.delta')
         watch_source = None
@@ -502,20 +502,20 @@ def sync_google_fit(user, db_session):
                 break
         steps_data = {}
         if watch_source:
-            logger.info(f'Trying raw watch source via dataset API: {watch_source}')
+            logger.info(f'Watch raw source via dataset API: {watch_source}')
             s = fetch_raw_dataset(token, watch_source, start_date, today, 'int')
             steps_data.update(s)
             logger.info(f'Watch raw step data: {s}')
-        # Also try all derived sources (top_level, merge, estimated) as fallback
-        derived_sources = [s for s in step_sources if s.startswith('derived:') and 'top_level' in s]
-        derived_sources += ['derived:com.google.step_count.delta:com.google.android.gms:merge_step_deltas',
-                            'derived:com.google.step_count.delta:com.google.android.gms:estimated_steps']
-        for src in derived_sources:
-            if src in step_sources or not src.startswith('derived:'):
+        for src in step_sources:
+            try:
                 s = fetch_aggregate(token, 'com.google.step_count.delta', src, start_date, today, 'intVal', 'int')
+                if s:
+                    logger.info(f'  [{src.split(":")[-1][:40]}] steps: {s}')
                 for day, steps in s.items():
                     steps_data[day] = max(steps_data.get(day, 0), steps)
-        logger.info(f'Steps data ({len(steps_data)} days): {steps_data}')
+            except Exception:
+                pass
+        logger.info(f'Steps data final ({len(steps_data)} days): {steps_data}')
         calories_data = fetch_aggregate(token, 'com.google.calories.expended',
             'derived:com.google.calories.expended:com.google.android.gms:merge_calories_expended',
             start_date, today, 'fpVal', 'float')
