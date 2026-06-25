@@ -338,12 +338,20 @@ def map_activity_type(activity_type):
     return 'strength'
 
 
+SYNC_CF = {
+    'steps': 2595 / 1584,
+    'calories': 1305 / 761,
+    'step_len': 1.69 / 2595,
+}
+
+
 def sync_google_fit(user, db_session):
     from datetime import date, timedelta
     from models import WorkoutEntry, WeightLog, SyncLog, DailyActivity, utcnow
     import logging
 
     logger = logging.getLogger('ajo.sync')
+    cf = SYNC_CF
     today = date.today()
     start_date = today - timedelta(days=7)
     stats = {'workouts': 0, 'weights': 0, 'steps': 0, 'calories': 0, 'hr_days': 0}
@@ -437,12 +445,20 @@ def sync_google_fit(user, db_session):
 
         all_dates = set(steps_data) | set(calories_data) | set(distance_data) | set(hr_data)
         for d in all_dates:
+            raw_steps = steps_data.get(d, 0)
+            raw_cal = calories_data.get(d, 0.0)
+            corr_steps = int(round(raw_steps * cf['steps'])) if raw_steps else 0
+            corr_cal = round(raw_cal * cf['calories'], 1) if raw_cal else 0.0
+            api_distance = round(distance_data.get(d, 0.0) / 1000, 2) if distance_data.get(d) else 0
+            if corr_steps:
+                corr_dist = round(corr_steps * cf['step_len'], 2)
+            else:
+                corr_dist = 0.0
             existing = DailyActivity.query.filter_by(user_id=user.id, date=d).first()
             if existing:
-                existing.steps = int(steps_data.get(d, existing.steps))
-                existing.calories_burned = calories_data.get(d, existing.calories_burned)
-                api_distance = round(distance_data.get(d, 0.0) / 1000, 2)
-                existing.distance_km = api_distance or round(existing.steps * 0.75 / 1000, 2)
+                existing.steps = corr_steps or existing.steps
+                existing.calories_burned = corr_cal or existing.calories_burned
+                existing.distance_km = api_distance or corr_dist
                 hr = hr_data.get(d)
                 if hr:
                     existing.heart_rate_avg = hr['avg']
@@ -450,14 +466,12 @@ def sync_google_fit(user, db_session):
                     existing.heart_rate_min = hr['min']
                 existing.source = 'google_fit'
             else:
-                api_distance = round(distance_data.get(d, 0.0) / 1000, 2) if distance_data.get(d) else 0
-                dist = api_distance or round(int(steps_data.get(d, 0)) * 0.75 / 1000, 2)
                 entry = DailyActivity(
                     user_id=user.id,
                     date=d,
-                    steps=int(steps_data.get(d, 0)),
-                    calories_burned=calories_data.get(d, 0.0),
-                    distance_km=dist,
+                    steps=corr_steps,
+                    calories_burned=corr_cal,
+                    distance_km=api_distance or corr_dist,
                     source='google_fit',
                 )
                 hr = hr_data.get(d)
@@ -466,8 +480,8 @@ def sync_google_fit(user, db_session):
                     entry.heart_rate_max = hr['max']
                     entry.heart_rate_min = hr['min']
                 db_session.add(entry)
-            stats['steps'] += int(steps_data.get(d, 0))
-            stats['calories'] += calories_data.get(d, 0.0)
+            stats['steps'] += corr_steps
+            stats['calories'] += corr_cal
             if hr_data.get(d):
                 stats['hr_days'] += 1
 
