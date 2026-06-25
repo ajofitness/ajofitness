@@ -199,7 +199,10 @@ def _find_weight_data_sources(access_token):
 
 
 def fetch_weight(access_token, start_date, end_date):
+    import logging
+    logger = logging.getLogger('ajo.sync')
     data_sources = _find_weight_data_sources(access_token)
+    logger.info(f'Weight data sources found: {data_sources}')
     if not data_sources:
         data_sources = [
             'derived:com.google.weight:com.google.android.gms:merge_weight',
@@ -220,17 +223,21 @@ def fetch_weight(access_token, start_date, end_date):
             headers=_headers(access_token),
             json=body,
         )
-        if resp.status_code != 200:
-            continue
-        data = resp.json()
-        for bucket in data.get('bucket', []):
-            day = _date_from_nanos(int(bucket['startTimeMillis']) * 1e6)
-            for dataset in bucket.get('dataset', []):
-                for point in dataset.get('point', []):
-                    if point.get('value') and 'fpVal' in point['value'][0]:
-                        results[day] = round(point['value'][0]['fpVal'], 1)
-        if results:
-            break
+        if resp.status_code == 200:
+            logger.info(f'Weight aggregate API success for ds={ds}')
+            data = resp.json()
+            for bucket in data.get('bucket', []):
+                day = _date_from_nanos(int(bucket['startTimeMillis']) * 1e6)
+                for dataset in bucket.get('dataset', []):
+                    for point in dataset.get('point', []):
+                        if point.get('value') and 'fpVal' in point['value'][0]:
+                            results[day] = round(point['value'][0]['fpVal'], 1)
+            if results:
+                logger.info(f'Weight data from {ds}: {results}')
+                break
+            logger.info(f'No weight points in response for {ds}')
+        else:
+            logger.warning(f'Weight API error for {ds}: {resp.status_code} {resp.text[:200]}')
     return results
 
 
