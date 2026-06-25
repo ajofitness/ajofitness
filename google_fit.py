@@ -101,7 +101,7 @@ def _nanos_to_datetime(nanos):
 
 
 def _date_from_nanos(nanos):
-    return _nanos_to_datetime(nanos).date()
+    return _nanos_to_datetime(int(nanos)).date()
 
 
 def fetch_steps(access_token, start_date, end_date):
@@ -124,7 +124,7 @@ def fetch_steps(access_token, start_date, end_date):
     data = resp.json()
     results = {}
     for bucket in data.get('bucket', []):
-        day = _date_from_nanos(bucket['startTimeMillis'] * 1e6)
+        day = _date_from_nanos(int(bucket['startTimeMillis']) * 1e6)
         total = sum(
             p['value'][0]['intVal']
             for p in bucket.get('dataset', [{}])[0].get('point', [])
@@ -154,7 +154,7 @@ def fetch_calories(access_token, start_date, end_date):
     data = resp.json()
     results = {}
     for bucket in data.get('bucket', []):
-        day = _date_from_nanos(bucket['startTimeMillis'] * 1e6)
+        day = _date_from_nanos(int(bucket['startTimeMillis']) * 1e6)
         total = sum(
             p['value'][0]['fpVal']
             for p in bucket.get('dataset', [{}])[0].get('point', [])
@@ -184,7 +184,7 @@ def fetch_weight(access_token, start_date, end_date):
     data = resp.json()
     results = {}
     for bucket in data.get('bucket', []):
-        day = _date_from_nanos(bucket['startTimeMillis'] * 1e6)
+        day = _date_from_nanos(int(bucket['startTimeMillis']) * 1e6)
         for dataset in bucket.get('dataset', []):
             for point in dataset.get('point', []):
                 if point.get('value') and 'fpVal' in point['value'][0]:
@@ -270,12 +270,12 @@ def sync_google_fit(user, db_session):
         for s in sessions:
             if not s.get('startTimeMillis') or not s.get('endTimeMillis'):
                 continue
-            session_date = _date_from_nanos(s['startTimeMillis'] * 1e6)
+            session_date = _date_from_nanos(int(s['startTimeMillis']) * 1e6)
             session_name = s.get('name', 'Allenamento')
             note = f'Google Fit: {session_name}'
             if note in existing_sessions:
                 continue
-            duration_min = int((s['endTimeMillis'] - s['startTimeMillis']) / 60000)
+            duration_min = int((int(s['endTimeMillis']) - int(s['startTimeMillis'])) / 60000)
             if duration_min < 1:
                 continue
             activity_type = map_activity_type(s.get('activityType', ''))
