@@ -417,6 +417,9 @@ def sync_google_fit(user, db_session):
                 distance_km=round(distance_data.get(d, 0.0) / 1000, 2),
                 source='google_fit',
             )
+            # Estimate distance from steps if Google Fit has none
+            if entry.distance_km == 0 and entry.steps > 0:
+                entry.distance_km = round(entry.steps * 0.75 / 1000, 2)
             hr = hr_data.get(d)
             if hr:
                 entry.heart_rate_avg = hr['avg']
