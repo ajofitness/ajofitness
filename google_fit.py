@@ -126,6 +126,24 @@ def _date_from_nanos(nanos):
     return _nanos_to_datetime(int(nanos)).date()
 
 
+def list_data_sources(access_token, data_type='com.google.step_count.delta'):
+    """List all available data sources for a given data type."""
+    import logging
+    logger = logging.getLogger('ajo.sync')
+    resp = requests.get(
+        f'{GOOGLE_FIT_BASE}/dataSources',
+        headers=_headers(access_token),
+        params={'dataTypeName': data_type},
+    )
+    if resp.status_code != 200:
+        logger.error(f"Errore listing data sources: {resp.status_code} {resp.text}")
+        return []
+    sources = resp.json().get('dataSource', [])
+    for s in sources:
+        logger.info(f"Data source: {s.get('dataStreamId')} | app: {s.get('application', {}).get('packageName', 'N/A')} | device: {s.get('device', {}).get('model', 'N/A')}")
+    return [s.get('dataStreamId') for s in sources]
+
+
 def fetch_steps(access_token, start_date, end_date):
     body = {
         'aggregateBy': [{
@@ -449,13 +467,25 @@ def sync_google_fit(user, db_session):
             stats['workouts'] += 1
 
         # Daily aggregates: steps, calories, distance, heart_rate
+        # Try each raw step delta source, log them all, pick max
+        watch_keyword = os.environ.get('WATCH_DATA_SOURCE', 'com.yc.gloryfit')
+        step_sources = list_data_sources(token, 'com.google.step_count.delta')
+        watch_source = None
+        for src in step_sources:
+            if watch_keyword in src:
+                watch_source = src
+                break
+        if watch_source:
+            sources_to_try = [watch_source]
+        else:
+            sources_to_try = step_sources or ['derived:com.google.step_count.delta:com.google.android.gms:merge_step_deltas',
+                                               'derived:com.google.step_count.delta:com.google.android.gms:estimated_steps']
         steps_data = {}
-        for src in ['derived:com.google.step_count.delta:com.google.android.gms:merge_step_deltas',
-                     'derived:com.google.step_count.delta:com.google.android.gms:estimated_steps']:
+        for src in sources_to_try:
             s = fetch_aggregate(token, 'com.google.step_count.delta', src, start_date, today, 'intVal', 'int')
             for day, steps in s.items():
                 steps_data[day] = max(steps_data.get(day, 0), steps)
-        logger.info(f'Steps data: {steps_data}')
+        logger.info(f'Steps data ({len(steps_data)} days): {steps_data}')
         calories_data = fetch_aggregate(token, 'com.google.calories.expended',
             'derived:com.google.calories.expended:com.google.android.gms:merge_calories_expended',
             start_date, today, 'fpVal', 'float')
