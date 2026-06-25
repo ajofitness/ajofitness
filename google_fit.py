@@ -236,12 +236,14 @@ def fetch_sessions(access_token, start_date, end_date):
     return data.get('session', [])
 
 
-def fetch_aggregate(access_token, data_type, data_source, start_date, end_date, val_type='float'):
+def fetch_aggregate(access_token, data_type, data_source, start_date, end_date, val_type='float', tz_offset=0):
     """Generic aggregate fetch for daily bucketed data.
-    If data_source is None, Google chooses the best source."""
-    from datetime import datetime as dt
-    start_ms = int(dt.combine(start_date, dt.min.time()).timestamp() * 1000)
-    end_ms = int(dt.combine(end_date, dt.max.time()).timestamp() * 1000)
+    If data_source is None, Google chooses the best source.
+    tz_offset: hours to shift bucket alignment (e.g. 2 for UTC+2)."""
+    from datetime import datetime as dt, timedelta
+    offset = timedelta(hours=tz_offset)
+    start_ms = int((dt.combine(start_date, dt.min.time()) - offset).timestamp() * 1000)
+    end_ms = int((dt.combine(end_date, dt.max.time()) - offset).timestamp() * 1000)
     agg = {'dataTypeName': data_type}
     if data_source:
         agg['dataSourceId'] = data_source
@@ -255,8 +257,11 @@ def fetch_aggregate(access_token, data_type, data_source, start_date, end_date, 
     if resp.status_code != 200:
         return {}
     results = {}
+    from datetime import timedelta as tdelta
     for bucket in resp.json().get('bucket', []):
         day = _date_from_nanos(int(bucket['startTimeMillis']) * 1e6)
+        if tz_offset:
+            day = (_nanos_to_datetime(int(bucket['startTimeMillis']) * 1e6) + tdelta(hours=tz_offset)).date()
         for dataset in bucket.get('dataset', []):
             for point in dataset.get('point', []):
                 if not point.get('value'):
@@ -270,10 +275,12 @@ def fetch_aggregate(access_token, data_type, data_source, start_date, end_date, 
     return results
 
 
-def fetch_heart_rate(access_token, start_date, end_date):
+def fetch_heart_rate(access_token, start_date, end_date, tz_offset=0):
     results = {}
-    start_ms = int(datetime.combine(start_date, datetime.min.time()).timestamp() * 1000)
-    end_ms = int(datetime.combine(end_date, datetime.max.time()).timestamp() * 1000)
+    from datetime import timedelta
+    offset = timedelta(hours=tz_offset)
+    start_ms = int((datetime.combine(start_date, datetime.min.time()) - offset).timestamp() * 1000)
+    end_ms = int((datetime.combine(end_date, datetime.max.time()) - offset).timestamp() * 1000)
     data_sources = [
         'derived:com.google.heart_rate.bpm:com.google.android.gms:merge_heart_rate_bpm',
     ]
@@ -287,8 +294,11 @@ def fetch_heart_rate(access_token, start_date, end_date):
         resp = requests.post(f'{GOOGLE_FIT_BASE}/dataset:aggregate', headers=_headers(access_token), json=body)
         if resp.status_code != 200:
             continue
+        from datetime import timedelta as tdelta
         for bucket in resp.json().get('bucket', []):
             day = _date_from_nanos(int(bucket['startTimeMillis']) * 1e6)
+            if tz_offset:
+                day = (_nanos_to_datetime(int(bucket['startTimeMillis']) * 1e6) + tdelta(hours=tz_offset)).date()
             vals = []
             for dataset in bucket.get('dataset', []):
                 for point in dataset.get('point', []):
@@ -393,16 +403,18 @@ def sync_google_fit(user, db_session):
             stats['workouts'] += 1
 
         # Daily aggregates: steps, calories, distance, heart_rate
+        tz = 2  # UTC+2 Italy summer
         steps_data = fetch_aggregate(token, 'com.google.step_count.delta',
             'derived:com.google.step_count.delta:com.google.android.gms:merge_step_deltas',
-            start_date, today, 'int')
+            start_date, today, 'int', tz)
+        logger.info(f'Steps data with tz_offset={tz}: {steps_data}')
         calories_data = fetch_aggregate(token, 'com.google.calories.expended',
             'derived:com.google.calories.expended:com.google.android.gms:merge_calories_expended',
-            start_date, today, 'float')
+            start_date, today, 'float', tz)
         distance_data = fetch_aggregate(token, 'com.google.distance.delta',
             'derived:com.google.distance.delta:com.google.android.gms:merge_distance_delta',
-            start_date, today, 'float')
-        hr_data = fetch_heart_rate(token, start_date, today)
+            start_date, today, 'float', tz)
+        hr_data = fetch_heart_rate(token, start_date, today, tz)
 
         all_dates = set(steps_data) | set(calories_data) | set(distance_data) | set(hr_data)
         for d in all_dates:
