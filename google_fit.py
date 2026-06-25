@@ -314,6 +314,31 @@ def fetch_sessions(access_token, start_date, end_date):
     return data.get('session', [])
 
 
+def fetch_raw_dataset(access_token, data_source, start_date, end_date, val_type='int'):
+    """Fetch raw data points from a data source using the datasets API."""
+    from datetime import datetime as dt
+    start_ns = int(dt.combine(start_date, dt.min.time()).timestamp() * 1e9)
+    end_ns = int(dt.combine(end_date, dt.max.time()).timestamp() * 1e9)
+    resp = requests.get(
+        f'{GOOGLE_FIT_BASE}/dataSources/{data_source}/datasets/{start_ns}-{end_ns}',
+        headers=_headers(access_token),
+    )
+    if resp.status_code != 200:
+        return {}
+    data = resp.json()
+    results = {}
+    for point in data.get('point', []):
+        if not point.get('value') or not point.get('startTimeNanos'):
+            continue
+        day = _date_from_nanos(int(point['startTimeNanos']))
+        if val_type == 'int':
+            v = point['value'][0].get('intVal', 0)
+        else:
+            v = point['value'][0].get('fpVal', 0)
+        results[day] = results.get(day, 0) + v
+    return results
+
+
 def fetch_aggregate(access_token, data_type, data_source, start_date, end_date, value_key='fpVal', val_type='float'):
     """Generic aggregate fetch for daily bucketed data."""
     from datetime import datetime as dt
@@ -467,7 +492,7 @@ def sync_google_fit(user, db_session):
             stats['workouts'] += 1
 
         # Daily aggregates: steps, calories, distance, heart_rate
-        # Try each raw step delta source, log them all, pick max
+        # Try raw watch dataset first, then all derived sources
         watch_keyword = os.environ.get('WATCH_DATA_SOURCE', 'com.yc.gloryfit')
         step_sources = list_data_sources(token, 'com.google.step_count.delta')
         watch_source = None
@@ -475,16 +500,21 @@ def sync_google_fit(user, db_session):
             if watch_keyword in src:
                 watch_source = src
                 break
-        if watch_source:
-            sources_to_try = [watch_source]
-        else:
-            sources_to_try = step_sources or ['derived:com.google.step_count.delta:com.google.android.gms:merge_step_deltas',
-                                               'derived:com.google.step_count.delta:com.google.android.gms:estimated_steps']
         steps_data = {}
-        for src in sources_to_try:
-            s = fetch_aggregate(token, 'com.google.step_count.delta', src, start_date, today, 'intVal', 'int')
-            for day, steps in s.items():
-                steps_data[day] = max(steps_data.get(day, 0), steps)
+        if watch_source:
+            logger.info(f'Trying raw watch source via dataset API: {watch_source}')
+            s = fetch_raw_dataset(token, watch_source, start_date, today, 'int')
+            steps_data.update(s)
+            logger.info(f'Watch raw step data: {s}')
+        # Also try all derived sources (top_level, merge, estimated) as fallback
+        derived_sources = [s for s in step_sources if s.startswith('derived:') and 'top_level' in s]
+        derived_sources += ['derived:com.google.step_count.delta:com.google.android.gms:merge_step_deltas',
+                            'derived:com.google.step_count.delta:com.google.android.gms:estimated_steps']
+        for src in derived_sources:
+            if src in step_sources or not src.startswith('derived:'):
+                s = fetch_aggregate(token, 'com.google.step_count.delta', src, start_date, today, 'intVal', 'int')
+                for day, steps in s.items():
+                    steps_data[day] = max(steps_data.get(day, 0), steps)
         logger.info(f'Steps data ({len(steps_data)} days): {steps_data}')
         calories_data = fetch_aggregate(token, 'com.google.calories.expended',
             'derived:com.google.calories.expended:com.google.android.gms:merge_calories_expended',
