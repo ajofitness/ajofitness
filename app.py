@@ -92,7 +92,7 @@ def create_app():
     @app.context_processor
     def inject_globals():
         return {
-            'APP_NAME': 'Ajò',
+            'APP_NAME': 'AjòFitness',
             'current_year': datetime.now().year,
             'today': date.today,
             'timedelta': timedelta,
