@@ -404,16 +404,47 @@ def sync_google_fit(user, db_session):
 
         # Daily aggregates: steps, calories, distance, heart_rate
         tz = 2  # UTC+2 Italy summer
-        steps_data = fetch_aggregate(token, 'com.google.step_count.delta',
-            'derived:com.google.step_count.delta:com.google.android.gms:merge_step_deltas',
-            start_date, today, 'int', tz)
-        logger.info(f'Steps data with tz_offset={tz}: {steps_data}')
-        calories_data = fetch_aggregate(token, 'com.google.calories.expended',
-            'derived:com.google.calories.expended:com.google.android.gms:merge_calories_expended',
-            start_date, today, 'float', tz)
-        distance_data = fetch_aggregate(token, 'com.google.distance.delta',
-            'derived:com.google.distance.delta:com.google.android.gms:merge_distance_delta',
-            start_date, today, 'float', tz)
+
+        # Steps: try multiple sources, pick highest per day
+        steps_sources = [
+            ('merge_step_deltas', 'derived:com.google.step_count.delta:com.google.android.gms:merge_step_deltas'),
+            ('estimated_steps', 'derived:com.google.step_count.delta:com.google.android.gms:estimated_steps'),
+            ('google_best', None),
+        ]
+        steps_data = {}
+        for name, dsid in steps_sources:
+            data = fetch_aggregate(token, 'com.google.step_count.delta', dsid, start_date, today, 'int', tz)
+            logger.info(f'Steps ({name}): {data}')
+            for d, v in data.items():
+                if v > steps_data.get(d, 0):
+                    steps_data[d] = v
+
+        # Calories: try multiple sources
+        cal_sources = [
+            ('merge_calories_expended', 'derived:com.google.calories.expended:com.google.android.gms:merge_calories_expended'),
+            ('google_best', None),
+        ]
+        calories_data = {}
+        for name, dsid in cal_sources:
+            data = fetch_aggregate(token, 'com.google.calories.expended', dsid, start_date, today, 'float', tz)
+            logger.info(f'Calories ({name}): {data}')
+            for d, v in data.items():
+                if v > calories_data.get(d, 0):
+                    calories_data[d] = v
+
+        # Distance: try multiple sources
+        dist_sources = [
+            ('merge_distance_delta', 'derived:com.google.distance.delta:com.google.android.gms:merge_distance_delta'),
+            ('google_best', None),
+        ]
+        distance_data = {}
+        for name, dsid in dist_sources:
+            data = fetch_aggregate(token, 'com.google.distance.delta', dsid, start_date, today, 'float', tz)
+            logger.info(f'Distance ({name}): {data}')
+            for d, v in data.items():
+                if v > distance_data.get(d, 0):
+                    distance_data[d] = v
+
         hr_data = fetch_heart_rate(token, start_date, today, tz)
 
         all_dates = set(steps_data) | set(calories_data) | set(distance_data) | set(hr_data)
