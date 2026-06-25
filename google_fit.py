@@ -126,7 +126,7 @@ def _date_from_nanos(nanos):
     return _nanos_to_datetime(int(nanos)).date()
 
 
-def _find_weight_data_sources(access_token):
+def _list_data_sources(access_token):
     import logging
     logger = logging.getLogger('ajo.sync')
     resp = requests.get(
@@ -136,7 +136,13 @@ def _find_weight_data_sources(access_token):
     if resp.status_code != 200:
         logger.warning(f'DataSources API error: {resp.status_code}')
         return []
-    all_sources = resp.json().get('dataSource', [])
+    return resp.json().get('dataSource', [])
+
+
+def _find_weight_data_sources(access_token):
+    import logging
+    logger = logging.getLogger('ajo.sync')
+    all_sources = _list_data_sources(access_token)
     weight_sources = []
     for ds in all_sources:
         sid = ds.get('dataStreamId', '')
@@ -362,6 +368,10 @@ def sync_google_fit(user, db_session):
         if not token:
             raise ValueError('Nessun token Google trovato')
 
+        # Fetch all data sources once
+        all_sources = _list_data_sources(token)
+        logger.info(f'Total data sources found: {len(all_sources)}')
+
         # Weight
         weight_data = fetch_weight(token, start_date, today)
         for d, w in weight_data.items():
@@ -405,42 +415,48 @@ def sync_google_fit(user, db_session):
         # Daily aggregates: steps, calories, distance, heart_rate
         tz = 2  # UTC+2 Italy summer
 
-        # Steps: try multiple sources, pick highest per day
-        steps_sources = [
-            ('merge_step_deltas', 'derived:com.google.step_count.delta:com.google.android.gms:merge_step_deltas'),
-            ('estimated_steps', 'derived:com.google.step_count.delta:com.google.android.gms:estimated_steps'),
-            ('google_best', None),
-        ]
+        # Steps: sum ALL step_count.delta sources per day
         steps_data = {}
-        for name, dsid in steps_sources:
+        step_dsids = [ds.get('dataStreamId', '') for ds in all_sources
+                      if ds.get('dataType', {}).get('name') == 'com.google.step_count.delta']
+        logger.info(f'All step_count.delta sources ({len(step_dsids)}): {step_dsids}')
+        for dsid in step_dsids:
             data = fetch_aggregate(token, 'com.google.step_count.delta', dsid, start_date, today, 'int', tz)
-            logger.info(f'Steps ({name}): {data}')
+            short_name = dsid.split(':')[-1][:40] if dsid else 'none'
+            logger.info(f'Steps ({short_name}): {data}')
             for d, v in data.items():
-                if v > steps_data.get(d, 0):
-                    steps_data[d] = v
+                steps_data[d] = steps_data.get(d, 0) + v
+        # Fallback: also try without dataSourceId, pick max
+        best_data = fetch_aggregate(token, 'com.google.step_count.delta', None, start_date, today, 'int', tz)
+        logger.info(f'Steps (google_best): {best_data}')
+        for d, v in best_data.items():
+            if v > steps_data.get(d, 0):
+                steps_data[d] = v
 
-        # Calories: try multiple sources
-        cal_sources = [
-            ('merge_calories_expended', 'derived:com.google.calories.expended:com.google.android.gms:merge_calories_expended'),
-            ('google_best', None),
-        ]
+        # Calories: try all individual sources + merge, pick max per day
         calories_data = {}
-        for name, dsid in cal_sources:
-            data = fetch_aggregate(token, 'com.google.calories.expended', dsid, start_date, today, 'float', tz)
-            logger.info(f'Calories ({name}): {data}')
+        for ds in all_sources:
+            sid = ds.get('dataStreamId', '')
+            dtype = ds.get('dataType', {}).get('name', '')
+            if dtype != 'com.google.calories.expended':
+                continue
+            data = fetch_aggregate(token, 'com.google.calories.expended', sid, start_date, today, 'float', tz)
+            short_name = sid.split(':')[-1][:40] if sid else 'none'
+            logger.info(f'Calories ({short_name}): {data}')
             for d, v in data.items():
                 if v > calories_data.get(d, 0):
                     calories_data[d] = v
 
-        # Distance: try multiple sources
-        dist_sources = [
-            ('merge_distance_delta', 'derived:com.google.distance.delta:com.google.android.gms:merge_distance_delta'),
-            ('google_best', None),
-        ]
+        # Distance: try all individual sources + merge, pick max per day
         distance_data = {}
-        for name, dsid in dist_sources:
-            data = fetch_aggregate(token, 'com.google.distance.delta', dsid, start_date, today, 'float', tz)
-            logger.info(f'Distance ({name}): {data}')
+        for ds in all_sources:
+            sid = ds.get('dataStreamId', '')
+            dtype = ds.get('dataType', {}).get('name', '')
+            if dtype != 'com.google.distance.delta':
+                continue
+            data = fetch_aggregate(token, 'com.google.distance.delta', sid, start_date, today, 'float', tz)
+            short_name = sid.split(':')[-1][:40] if sid else 'none'
+            logger.info(f'Distance ({short_name}): {data}')
             for d, v in data.items():
                 if v > distance_data.get(d, 0):
                     distance_data[d] = v
@@ -451,27 +467,39 @@ def sync_google_fit(user, db_session):
         for d in all_dates:
             existing = DailyActivity.query.filter_by(user_id=user.id, date=d).first()
             if existing:
-                continue
-            entry = DailyActivity(
-                user_id=user.id,
-                date=d,
-                steps=int(steps_data.get(d, 0)),
-                calories_burned=calories_data.get(d, 0.0),
-                distance_km=round(distance_data.get(d, 0.0) / 1000, 2),
-                source='google_fit',
-            )
-            # Estimate distance from steps if Google Fit has none
-            if entry.distance_km == 0 and entry.steps > 0:
-                entry.distance_km = round(entry.steps * 0.75 / 1000, 2)
-            hr = hr_data.get(d)
-            if hr:
-                entry.heart_rate_avg = hr['avg']
-                entry.heart_rate_max = hr['max']
-                entry.heart_rate_min = hr['min']
-            db_session.add(entry)
-            stats['steps'] += entry.steps
-            stats['calories'] += entry.calories_burned
-            if hr:
+                existing.steps = int(steps_data.get(d, existing.steps))
+                existing.calories_burned = calories_data.get(d, existing.calories_burned)
+                distance_km = round(distance_data.get(d, 0.0) / 1000, 2) if distance_data.get(d) else 0
+                if distance_km:
+                    existing.distance_km = distance_km
+                if existing.distance_km == 0 and existing.steps > 0:
+                    existing.distance_km = round(existing.steps * 0.75 / 1000, 2)
+                hr = hr_data.get(d)
+                if hr:
+                    existing.heart_rate_avg = hr['avg']
+                    existing.heart_rate_max = hr['max']
+                    existing.heart_rate_min = hr['min']
+                existing.source = 'google_fit'
+            else:
+                entry = DailyActivity(
+                    user_id=user.id,
+                    date=d,
+                    steps=int(steps_data.get(d, 0)),
+                    calories_burned=calories_data.get(d, 0.0),
+                    distance_km=round(distance_data.get(d, 0.0) / 1000, 2),
+                    source='google_fit',
+                )
+                if entry.distance_km == 0 and entry.steps > 0:
+                    entry.distance_km = round(entry.steps * 0.75 / 1000, 2)
+                hr = hr_data.get(d)
+                if hr:
+                    entry.heart_rate_avg = hr['avg']
+                    entry.heart_rate_max = hr['max']
+                    entry.heart_rate_min = hr['min']
+                db_session.add(entry)
+            stats['steps'] += int(steps_data.get(d, 0))
+            stats['calories'] += calories_data.get(d, 0.0)
+            if hr_data.get(d):
                 stats['hr_days'] += 1
 
         user.last_sync_at = utcnow()
