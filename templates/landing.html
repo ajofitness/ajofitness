@@ -1,20 +1,19 @@
 {% extends 'base.html' %}
-{% block title %}{{ APP_NAME }} - Dimagrisci in modo intelligente{% endblock %}
+{% block title %}{{ APP_NAME }} — La tua salute, su misura{% endblock %}
 
 {% block content %}
 <section class="ft-hero">
   <div class="container">
     <div class="row align-items-center min-vh-75">
       <div class="col-lg-7">
-        <span class="ft-badge mb-3"><i class="bi bi-stars"></i> Nuovo: programma 16 settimane incluso</span>
+        <span class="ft-badge mb-3"><i class="bi bi-stars"></i> Nuovo: sincronizzazione Google Fit + Coach AI</span>
         <h1 class="ft-hero-title">
-          Trasforma il tuo<br>
-          <span class="ft-accent-text">corpo</span> e la tua<br>
-          <span class="ft-accent-text">vita</span>.
+          Il tuo corpo,<br>
+          la tua <span class="ft-accent-text">missione</span>.
         </h1>
         <p class="ft-hero-subtitle">
-          Calcoli nutrizionali scientifici, diario alimentare con 100+ alimenti italiani,
-          tracking allenamenti e grafici di progresso. Tutto gratis, tutto in italiano.
+          Calcolo nutrizionale, diario alimentare, tracking allenamenti, digiuno, programmi, Google Fit, coach AI.
+          Tutto gratis. Tutto in italiano.
         </p>
         <div class="d-flex flex-wrap gap-3 mt-4">
           <a href="{{ url_for('register') }}" class="btn ft-btn-primary btn-lg">
@@ -31,10 +30,14 @@
           </div>
           <div class="ft-stat">
             <div class="ft-stat-num">13</div>
-            <div class="ft-stat-lbl">Attivit&agrave; sportive</div>
+            <div class="ft-stat-lbl">Attività sportive</div>
           </div>
           <div class="ft-stat">
-            <div class="ft-stat-num">0&euro;</div>
+            <div class="ft-stat-num">16</div>
+            <div class="ft-stat-lbl">Settimane di programma</div>
+          </div>
+          <div class="ft-stat">
+            <div class="ft-stat-num">0€</div>
             <div class="ft-stat-lbl">Per sempre gratis</div>
           </div>
         </div>
@@ -60,6 +63,10 @@
               <span>Progresso</span>
               <strong class="text-success">-5 kg / -15 kg</strong>
             </div>
+            <div class="ft-mini-stat">
+              <span>Passi oggi</span>
+              <strong class="text-info"><i class="bi bi-activity"></i> 8.421</strong>
+            </div>
             <div class="ft-mini-chart">
               <svg viewBox="0 0 200 60" class="img-fluid">
                 <polyline fill="none" stroke="#ff6b35" stroke-width="3"
@@ -77,49 +84,104 @@
 
 <section class="ft-features py-5">
   <div class="container">
-    <h2 class="text-center mb-5 ft-section-title">Tutto quello che ti serve per <span class="ft-accent-text">dimagrire bene</span></h2>
+    <div class="text-center mb-5">
+      <h2 class="ft-section-title">Tutto in <span class="ft-accent-text">una app</span></h2>
+      <p class="ft-hero-subtitle mx-auto">Dalla colazione alla corsa serale, dal digiuno al coaching — Ajò ti segue in ogni passo.</p>
+    </div>
     <div class="row g-4">
-      <div class="col-md-4">
+      <div class="col-md-6 col-lg-4">
         <div class="ft-feature-card">
           <div class="ft-feature-icon"><i class="bi bi-calculator"></i></div>
-          <h3>Calcoli personalizzati</h3>
-          <p>Metabolismo basale, fabbisogno giornaliero e macros calcolati con formule scientifiche (Mifflin-St Jeor).</p>
+          <h3>Piano personalizzato</h3>
+          <p>Calcolo di BMR, TDEE, BMI e deficit. Piano 16 settimane con target calorico, macro e tempistiche basati sui tuoi dati reali.</p>
         </div>
       </div>
-      <div class="col-md-4">
+      <div class="col-md-6 col-lg-4">
         <div class="ft-feature-card">
           <div class="ft-feature-icon"><i class="bi bi-journal-text"></i></div>
           <h3>Diario alimentare</h3>
-          <p>Pi&ugrave; di 100 alimenti italiani comuni con valori nutrizionali. Traccia ogni pasto e vedi i totali in tempo reale.</p>
+          <p>100+ alimenti italiani con valori nutrizionali reali. Traccia colazione, pranzo, cena e spuntini. Macros e calorie in tempo reale.</p>
         </div>
       </div>
-      <div class="col-md-4">
+      <div class="col-md-6 col-lg-4">
+        <div class="ft-feature-card">
+          <div class="ft-feature-icon"><i class="bi bi-activity"></i></div>
+          <h3>Google Fit</h3>
+          <p>Sincronizza passi, calorie bruciate, distanza e frequenza cardiaca dal tuo orologio. Tutti i dati in un unico posto.</p>
+        </div>
+      </div>
+      <div class="col-md-6 col-lg-4">
         <div class="ft-feature-card">
           <div class="ft-feature-icon"><i class="bi bi-bicycle"></i></div>
-          <h3>Tracking allenamenti</h3>
-          <p>Registra corsa, bici, nuoto, pesi. Calcolo automatico delle calorie bruciate con i valori MET.</p>
+          <h3>Allenamenti</h3>
+          <p>Registra corsa, bici, nuoto, pesi e altro. Calcolo MET delle calorie bruciate. Sincronizza sessioni da Google Fit.</p>
         </div>
       </div>
-      <div class="col-md-4">
+      <div class="col-md-6 col-lg-4">
         <div class="ft-feature-card">
           <div class="ft-feature-icon"><i class="bi bi-graph-up-arrow"></i></div>
-          <h3>Grafici progresso</h3>
-          <p>Visualizza l'andamento del peso nel tempo, calorie consumate e bruciate. La motivazione vien graficando.</p>
+          <h3>Progressi</h3>
+          <p>Grafici peso, calorie nette, composizione corporea. Confronta settimane. Foto di progresso con timeline.</p>
         </div>
       </div>
-      <div class="col-md-4">
+      <div class="col-md-6 col-lg-4">
         <div class="ft-feature-card">
-          <div class="ft-feature-icon"><i class="bi bi-clipboard-check"></i></div>
-          <h3>Piano personalizzato</h3>
-          <p>Ricevi un piano di 16 settimane con target calorico, macros e tempistiche, calcolato sui tuoi dati.</p>
+          <div class="ft-feature-icon"><i class="bi bi-collection-play"></i></div>
+          <h3>Programmi</h3>
+          <p>Percorsi guidati per dimagrimento, tonificazione e benessere. Ogni programma ha obiettivi e check giornalieri.</p>
         </div>
       </div>
-      <div class="col-md-4">
+      <div class="col-md-6 col-lg-4">
         <div class="ft-feature-card">
-          <div class="ft-feature-icon"><i class="bi bi-shield-check"></i></div>
-          <h3>Privato e sicuro</h3>
-          <p>I tuoi dati restano sul tuo dispositivo. Nessuna pubblicit&agrave;, nessun tracker di terze parti.</p>
+          <div class="ft-feature-icon"><i class="bi bi-clock"></i></div>
+          <h3>Digiuno</h3>
+          <p>Tieni traccia delle finestre di digiuno. Timer integrato, cronologia e statistiche per il tuo fasting.</p>
         </div>
+      </div>
+      <div class="col-md-6 col-lg-4">
+        <div class="ft-feature-card">
+          <div class="ft-feature-icon"><i class="bi bi-chat-quote"></i></div>
+          <h3>Coach AI</h3>
+          <p>Messaggi motivazionali, consigli e aggiustamenti al piano basati sui tuoi progressi. Come un personal trainer in tasca.</p>
+        </div>
+      </div>
+      <div class="col-md-6 col-lg-4">
+        <div class="ft-feature-card">
+          <div class="ft-feature-icon"><i class="bi bi-camera"></i></div>
+          <h3>Foto progresso</h3>
+          <p>Scatta e confronta le foto nel tempo. Una immagine vale più di mille numeri sulla bilancia.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="ft-how py-5" style="background: var(--bg-darkest);">
+  <div class="container">
+    <div class="text-center mb-5">
+      <h2 class="ft-section-title">Come <span class="ft-accent-text">funziona</span></h2>
+    </div>
+    <div class="row g-4 justify-content-center">
+      <div class="col-md-4 text-center">
+        <div style="width: 64px; height: 64px; border-radius: 50%; background: var(--accent-dim); display: flex; align-items: center; justify-content: center; margin: 0 auto 1rem;">
+          <span style="font-size: 1.5rem; font-weight: 900; color: var(--accent);">1</span>
+        </div>
+        <h5>Registrati</h5>
+        <p class="text-muted small">Inserisci i tuoi dati in 30 secondi. Altezza, peso, età, obiettivo.</p>
+      </div>
+      <div class="col-md-4 text-center">
+        <div style="width: 64px; height: 64px; border-radius: 50%; background: var(--accent-dim); display: flex; align-items: center; justify-content: center; margin: 0 auto 1rem;">
+          <span style="font-size: 1.5rem; font-weight: 900; color: var(--accent);">2</span>
+        </div>
+        <h5>Ottieni il piano</h5>
+        <p class="text-muted small">Ricevi il tuo piano 16 settimane con calorie e macros personalizzati.</p>
+      </div>
+      <div class="col-md-4 text-center">
+        <div style="width: 64px; height: 64px; border-radius: 50%; background: var(--accent-dim); display: flex; align-items: center; justify-content: center; margin: 0 auto 1rem;">
+          <span style="font-size: 1.5rem; font-weight: 900; color: var(--accent);">3</span>
+        </div>
+        <h5>Traccia e raggiungi</h5>
+        <p class="text-muted small">Registra pasti, allenamenti, peso. Il coach ti guida ogni giorno.</p>
       </div>
     </div>
   </div>
@@ -127,11 +189,16 @@
 
 <section class="ft-cta py-5">
   <div class="container text-center">
-    <h2 class="ft-section-title">Pronto a iniziare?</h2>
-    <p class="ft-hero-subtitle mb-4">Registrati in 30 secondi e inizia subito il tuo percorso.</p>
-    <a href="{{ url_for('register') }}" class="btn ft-btn-primary btn-lg">
-      <i class="bi bi-rocket-takeoff"></i> Crea account gratis
-    </a>
+    <h2 class="ft-section-title">Pronto a <span class="ft-accent-text">trasformarti</span>?</h2>
+    <p class="ft-hero-subtitle mx-auto mb-4">Niente abbonamenti. Niente pubblicità. Solo dati seri per risultati seri.</p>
+    <div class="d-flex flex-wrap gap-3 justify-content-center">
+      <a href="{{ url_for('register') }}" class="btn ft-btn-primary btn-lg">
+        <i class="bi bi-rocket-takeoff"></i> Crea account gratis
+      </a>
+      <a href="{{ url_for('login_demo') }}" class="btn ft-btn-outline btn-lg">
+        <i class="bi bi-play-circle"></i> Prova senza registrarti
+      </a>
+    </div>
   </div>
 </section>
 {% endblock %}
