@@ -21,6 +21,7 @@ from nutrition import (
     generate_coach_messages, seed_programs, get_program_progress, get_daily_checklist,
 )
 from foods_data import populate_foods
+from google_fit import generate_auth_url, exchange_code, refresh_access_token, sync_google_fit
 
 logging.basicConfig(
     level=logging.INFO,
