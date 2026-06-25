@@ -70,6 +70,12 @@ def create_app():
     with app.app_context():
         db.create_all()
         _migrate_schema(db.engine)
+        if Food.query.count() == 0:
+            populate_foods(db)
+            logger.info('Foods table populated.')
+        if Program.query.count() == 0:
+            seed_programs(db.session)
+            logger.info('Programs seeded.')
 
     csrf = CSRFProtect()
     csrf.init_app(app)
