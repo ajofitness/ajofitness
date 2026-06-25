@@ -225,7 +225,8 @@ def create_app():
     @admin_required
     def admin_pending():
         pending = User.query.filter_by(approved=False).order_by(User.created_at.desc()).all()
-        return render_template('admin_pending.html', pending=pending)
+        all_users = User.query.filter_by(approved=True).order_by(User.created_at.desc()).all()
+        return render_template('admin_pending.html', pending=pending, all_users=all_users)
 
     @app.route('/admin/approve/<int:user_id>', methods=['POST'])
     @login_required
@@ -246,6 +247,20 @@ def create_app():
         db.session.delete(user)
         db.session.commit()
         flash(f'Richiesta di {email} rifiutata e rimossa.', 'info')
+        return redirect(url_for('admin_pending'))
+
+    @app.route('/admin/delete/<int:user_id>', methods=['POST'])
+    @login_required
+    @admin_required
+    def admin_delete_user(user_id):
+        if user_id == current_user.id:
+            flash('Non puoi eliminare te stesso.', 'danger')
+            return redirect(url_for('admin_pending'))
+        user = User.query.get_or_404(user_id)
+        email = user.email
+        db.session.delete(user)
+        db.session.commit()
+        flash(f'Utente {email} eliminato.', 'info')
         return redirect(url_for('admin_pending'))
 
     @app.route('/login-demo')

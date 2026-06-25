@@ -1,11 +1,12 @@
 {% extends "base.html" %}
-{% block title %}Richieste di registrazione — {{ APP_NAME }}{% endblock %}
+{% block title %}Pannello Admin — {{ APP_NAME }}{% endblock %}
 {% block content %}
 <div class="container py-4">
-  <h1 class="mb-4"><i class="bi bi-shield-check"></i> Richieste di registrazione</h1>
+  <h1 class="mb-4"><i class="bi bi-shield-check"></i> Pannello Admin</h1>
 
   {% if pending %}
-  <div class="table-responsive">
+  <h2 class="fs-5 mb-3 text-warning"><i class="bi bi-hourglass-split"></i> Richieste in attesa ({{ pending|length }})</h2>
+  <div class="table-responsive mb-5">
     <table class="table table-dark table-hover align-middle">
       <thead>
         <tr>
@@ -37,8 +38,43 @@
     </table>
   </div>
   {% else %}
-  <div class="alert alert-info">Nessuna richiesta in attesa.</div>
+  <div class="alert alert-info mb-5">Nessuna richiesta in attesa.</div>
   {% endif %}
+
+  <h2 class="fs-5 mb-3"><i class="bi bi-people"></i> Utenti registrati ({{ all_users|length }})</h2>
+  <div class="table-responsive">
+    <table class="table table-dark table-hover align-middle">
+      <thead>
+        <tr>
+          <th>Nome</th>
+          <th>Email</th>
+          <th>Registrato il</th>
+          <th>Admin</th>
+          <th class="text-center">Azioni</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for u in all_users %}
+        <tr>
+          <td>{{ u.name }}</td>
+          <td>{{ u.email }}</td>
+          <td>{{ u.created_at.strftime('%d/%m/%Y') if u.created_at else '-' }}</td>
+          <td>{% if u.is_admin %}<span class="text-warning"><i class="bi bi-star-fill"></i> Admin</span>{% endif %}</td>
+          <td class="text-center">
+            {% if u.id != current_user.id %}
+            <form method="POST" action="{{ url_for('admin_delete_user', user_id=u.id) }}" class="d-inline" onsubmit="return confirm('Eliminare definitivamente {{ u.name }} ({{ u.email }})? Tutti i suoi dati andranno persi.')">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+              <button type="submit" class="btn btn-outline-danger btn-sm"><i class="bi bi-trash3"></i> Elimina</button>
+            </form>
+            {% else %}
+            <span class="text-muted"><i class="bi bi-person-check"></i> Sei tu</span>
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
 
   <a href="{{ url_for('dashboard') }}" class="btn btn-outline-light mt-3"><i class="bi bi-arrow-left"></i> Dashboard</a>
 </div>
