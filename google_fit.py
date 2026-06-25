@@ -296,6 +296,71 @@ def fetch_sessions(access_token, start_date, end_date):
     return data.get('session', [])
 
 
+def fetch_aggregate(access_token, data_type, data_source, start_date, end_date, value_key='fpVal', val_type='float'):
+    """Generic aggregate fetch for daily bucketed data."""
+    from datetime import datetime as dt
+    start_ms = int(dt.combine(start_date, dt.min.time()).timestamp() * 1000)
+    end_ms = int(dt.combine(end_date, dt.max.time()).timestamp() * 1000)
+    body = {
+        'aggregateBy': [{'dataTypeName': data_type, 'dataSourceId': data_source}],
+        'bucketByTime': {'durationMillis': 86400000},
+        'startTimeMillis': start_ms,
+        'endTimeMillis': end_ms,
+    }
+    resp = requests.post(f'{GOOGLE_FIT_BASE}/dataset:aggregate', headers=_headers(access_token), json=body)
+    if resp.status_code != 200:
+        return {}
+    results = {}
+    for bucket in resp.json().get('bucket', []):
+        day = _date_from_nanos(int(bucket['startTimeMillis']) * 1e6)
+        for dataset in bucket.get('dataset', []):
+            for point in dataset.get('point', []):
+                if not point.get('value'):
+                    continue
+                if val_type == 'int':
+                    v = point['value'][0].get('intVal', 0)
+                else:
+                    v = point['value'][0].get('fpVal', 0)
+                if v:
+                    results[day] = results.get(day, 0) + v
+    return results
+
+
+def fetch_heart_rate(access_token, start_date, end_date):
+    results = {}
+    start_ms = int(datetime.combine(start_date, datetime.min.time()).timestamp() * 1000)
+    end_ms = int(datetime.combine(end_date, datetime.max.time()).timestamp() * 1000)
+    data_sources = [
+        'derived:com.google.heart_rate.bpm:com.google.android.gms:merge_heart_rate_bpm',
+    ]
+    for ds in data_sources:
+        body = {
+            'aggregateBy': [{'dataTypeName': 'com.google.heart_rate.bpm', 'dataSourceId': ds}],
+            'bucketByTime': {'durationMillis': 86400000},
+            'startTimeMillis': start_ms,
+            'endTimeMillis': end_ms,
+        }
+        resp = requests.post(f'{GOOGLE_FIT_BASE}/dataset:aggregate', headers=_headers(access_token), json=body)
+        if resp.status_code != 200:
+            continue
+        for bucket in resp.json().get('bucket', []):
+            day = _date_from_nanos(int(bucket['startTimeMillis']) * 1e6)
+            vals = []
+            for dataset in bucket.get('dataset', []):
+                for point in dataset.get('point', []):
+                    if point.get('value') and 'fpVal' in point['value'][0]:
+                        vals.append(point['value'][0]['fpVal'])
+            if vals:
+                results[day] = {
+                    'avg': round(sum(vals) / len(vals), 0),
+                    'max': round(max(vals), 0),
+                    'min': round(min(vals), 0),
+                }
+        if results:
+            break
+    return results
+
+
 def map_activity_type(activity_type):
     from nutrition import ACTIVITY_METS
     if isinstance(activity_type, int):
@@ -315,13 +380,13 @@ def map_activity_type(activity_type):
 
 def sync_google_fit(user, db_session):
     from datetime import date, timedelta
-    from models import WorkoutEntry, WeightLog, SyncLog, utcnow
+    from models import WorkoutEntry, WeightLog, SyncLog, DailyActivity, utcnow
     import logging
 
     logger = logging.getLogger('ajo.sync')
     today = date.today()
     start_date = today - timedelta(days=7)
-    stats = {'workouts': 0, 'weights': 0, 'steps': 0}
+    stats = {'workouts': 0, 'weights': 0, 'steps': 0, 'calories': 0, 'hr_days': 0}
 
     now = utcnow()
     log = SyncLog(user_id=user.id, provider='google_fit', status='running', started_at=now)
@@ -343,19 +408,16 @@ def sync_google_fit(user, db_session):
         if not token:
             raise ValueError('Nessun token Google trovato')
 
+        # Weight
         weight_data = fetch_weight(token, start_date, today)
-        logger.info(f'Weight data from Google Fit: {len(weight_data)} entries: {weight_data}')
         for d, w in weight_data.items():
             existing = WeightLog.query.filter_by(user_id=user.id, date=d).first()
             if not existing:
-                wl = WeightLog(user_id=user.id, weight=w, date=d, note='Sincronizzato da Google Fit')
-                db_session.add(wl)
+                db_session.add(WeightLog(user_id=user.id, weight=w, date=d, note='Sincronizzato da Google Fit'))
                 stats['weights'] += 1
 
+        # Workout sessions
         sessions = fetch_sessions(token, start_date, today)
-        logger.info(f'Sessions from Google Fit: {len(sessions)} total')
-        if sessions and len(sessions) > 0:
-            logger.info(f'First session: {sessions[0]}')
         existing_sessions = set()
         for wo in WorkoutEntry.query.filter(
             WorkoutEntry.user_id == user.id,
@@ -379,17 +441,57 @@ def sync_google_fit(user, db_session):
             from nutrition import calories_burned
             w = user.current_weight or 75
             kcal = calories_burned(activity_type, duration_min, w)
-            wo = WorkoutEntry(
+            db_session.add(WorkoutEntry(
                 user_id=user.id, date=session_date,
                 activity_type=activity_type, duration_min=duration_min,
                 calories_burned=kcal, note=note,
-            )
-            db_session.add(wo)
+            ))
             stats['workouts'] += 1
+
+        # Daily aggregates: steps, calories, distance, heart_rate
+        steps_data = fetch_aggregate(token, 'com.google.step_count.delta',
+            'derived:com.google.step_count.delta:com.google.android.gms:merge_step_deltas',
+            start_date, today, 'intVal', 'int')
+        calories_data = fetch_aggregate(token, 'com.google.calories.expended',
+            'derived:com.google.calories.expended:com.google.android.gms:merge_calories_expended',
+            start_date, today, 'fpVal', 'float')
+        distance_data = fetch_aggregate(token, 'com.google.distance.delta',
+            'derived:com.google.distance.delta:com.google.android.gms:merge_distance_delta',
+            start_date, today, 'fpVal', 'float')
+        hr_data = fetch_heart_rate(token, start_date, today)
+
+        all_dates = set(steps_data) | set(calories_data) | set(distance_data) | set(hr_data)
+        for d in all_dates:
+            existing = DailyActivity.query.filter_by(user_id=user.id, date=d).first()
+            if existing:
+                continue
+            entry = DailyActivity(
+                user_id=user.id,
+                date=d,
+                steps=int(steps_data.get(d, 0)),
+                calories_burned=calories_data.get(d, 0.0),
+                distance_km=round(distance_data.get(d, 0.0) / 1000, 2),
+                source='google_fit',
+            )
+            hr = hr_data.get(d)
+            if hr:
+                entry.heart_rate_avg = hr['avg']
+                entry.heart_rate_max = hr['max']
+                entry.heart_rate_min = hr['min']
+            db_session.add(entry)
+            stats['steps'] += entry.steps
+            stats['calories'] += entry.calories_burned
+            if hr:
+                stats['hr_days'] += 1
 
         user.last_sync_at = utcnow()
         log.status = 'success'
-        log.message = f'Importati {stats["workouts"]} allenamenti, {stats["weights"]} pesi'
+        msg = f'Importati {stats["workouts"]} allenamenti, {stats["weights"]} pesi'
+        if stats['steps']:
+            msg += f', {stats["steps"]} passi'
+        if stats['calories']:
+            msg += f', {stats["calories"]:.0f} kcal'
+        log.message = msg
         log.workouts_imported = stats['workouts']
         log.weight_logs_imported = stats['weights']
         db_session.commit()

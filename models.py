@@ -352,3 +352,28 @@ class SyncLog(db.Model):
 
     user = db.relationship('User', backref=db.backref('sync_logs', lazy='dynamic',
                                                         cascade='all, delete-orphan'))
+
+
+class DailyActivity(db.Model):
+    __tablename__ = 'daily_activity'
+
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    date = db.Column(db.Date, nullable=False)
+    steps = db.Column(db.Integer, default=0)
+    calories_burned = db.Column(db.Float, default=0.0)
+    heart_rate_avg = db.Column(db.Float, nullable=True)
+    heart_rate_max = db.Column(db.Float, nullable=True)
+    heart_rate_min = db.Column(db.Float, nullable=True)
+    distance_km = db.Column(db.Float, default=0.0)
+    active_minutes = db.Column(db.Integer, default=0)
+    source = db.Column(db.String(30), default='google_fit')
+    created_at = db.Column(db.DateTime, default=utcnow)
+
+    __table_args__ = (db.UniqueConstraint('user_id', 'date', name='uq_user_date'),)
+
+    user = db.relationship('User', backref=db.backref('daily_activity', lazy='dynamic',
+                                                        cascade='all, delete-orphan'))
+
+    def __repr__(self):
+        return f'<DailyActivity {self.date} steps={self.steps} kcal={self.calories_burned}>'

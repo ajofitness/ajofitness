@@ -1,0 +1,108 @@
+{% extends "base.html" %}
+{% block title %}{{ APP_NAME }} - Attività giornaliera{% endblock %}
+{% block content %}
+<div class="container py-4">
+  <div class="d-flex align-items-center gap-3 mb-4">
+    <div class="ft-icon-circle bg-gradient-soft">
+      <i class="bi bi-activity fs-2"></i>
+    </div>
+    <div>
+      <h1 class="fw-bold mb-0">Attività giornaliera</h1>
+      <p class="text-light-50 mb-0">Passi, calorie, frequenza cardiaca e allenamenti sincronizzati</p>
+    </div>
+  </div>
+
+  <div class="row g-3 mb-4">
+    <div class="col-6 col-md-3">
+      <div class="ft-card text-center p-3">
+        <div class="fs-1 fw-bold ft-text-primary">{{ "{:,}".format(totals.steps) }}</div>
+        <div class="small text-light-50">Passi totali</div>
+      </div>
+    </div>
+    <div class="col-6 col-md-3">
+      <div class="ft-card text-center p-3">
+        <div class="fs-1 fw-bold ft-text-primary">{{ "{:.0f}".format(totals.calories) }}</div>
+        <div class="small text-light-50">Kcal totali</div>
+      </div>
+    </div>
+    <div class="col-6 col-md-3">
+      <div class="ft-card text-center p-3">
+        <div class="fs-1 fw-bold ft-text-primary">{{ totals.workouts }}</div>
+        <div class="small text-light-50">Allenamenti</div>
+      </div>
+    </div>
+    <div class="col-6 col-md-3">
+      <div class="ft-card text-center p-3">
+        <div class="fs-1 fw-bold ft-text-primary">{{ totals.days }}</div>
+        <div class="small text-light-50">Giorni tracciati</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="ft-card">
+    <div class="card-header ft-card-header d-flex justify-content-between align-items-center">
+      <h3 class="mb-0"><i class="bi bi-calendar-check"></i> Cronologia</h3>
+    </div>
+    <div class="card-body p-0">
+      {% if days %}
+      <div class="table-responsive">
+        <table class="table ft-table mb-0">
+          <thead>
+            <tr>
+              <th>Data</th>
+              <th class="text-center"><i class="bi bi-shoe-print"></i> Passi</th>
+              <th class="text-center"><i class="bi bi-fire"></i> Kcal</th>
+              <th class="text-center"><i class="bi bi-heart-pulse"></i> FC media</th>
+              <th class="text-center"><i class="bi bi-signpost-2"></i> Km</th>
+              <th class="text-center"><i class="bi bi-bicycle"></i> Allenamenti</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for d in days %}
+            <tr>
+              <td class="fw-medium">{{ (d.date|localtime).strftime('%d/%m/%Y') if d.date.tzinfo or true else d.date.strftime('%d/%m/%Y') }}</td>
+              <td class="text-center">{{ "{:,}".format(d.steps) if d.steps else '-' }}</td>
+              <td class="text-center">{{ "{:.0f}".format(d.calories_burned) if d.calories_burned else '-' }}</td>
+              <td class="text-center">
+                {% if d.heart_rate_avg %}
+                  {{ "{:.0f}".format(d.heart_rate_avg) }} <small class="text-light-50">bpm</small>
+                  {% if d.heart_rate_max %}
+                  <br><small class="text-light-50">max {{ "{:.0f}".format(d.heart_rate_max) }}</small>
+                  {% endif %}
+                {% else %}
+                -
+                {% endif %}
+              </td>
+              <td class="text-center">{{ "{:.2f}".format(d.distance_km) if d.distance_km else '-' }}</td>
+              <td class="text-center">
+                {% set day_wos = workouts.get(d.date, []) %}
+                {% if day_wos %}
+                  <span class="badge bg-success">{{ day_wos|length }}</span>
+                  <button class="btn btn-sm btn-link p-0 text-light-50" data-bs-toggle="collapse" data-bs-target="#wo-{{ d.id }}">
+                    <i class="bi bi-chevron-down"></i>
+                  </button>
+                  <div class="collapse small text-start" id="wo-{{ d.id }}">
+                    {% for wo in day_wos %}
+                    <div class="text-light-50">{{ wo.activity_type }} {{ wo.duration_min }}min</div>
+                    {% endfor %}
+                  </div>
+                {% else %}
+                -
+                {% endif %}
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% else %}
+      <div class="text-center py-5">
+        <i class="bi bi-cloud-arrow-down fs-1 text-light-50"></i>
+        <p class="text-light-50 mt-2 mb-0">Nessun dato di attività ancora.</p>
+        <p class="small text-light-50">Sincronizza con Google Fit dalla pagina <a href="{{ url_for('integrations') }}">Integrazioni</a> per vedere i tuoi dati.</p>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+{% endblock %}

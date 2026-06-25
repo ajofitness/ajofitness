@@ -437,6 +437,25 @@ def create_app():
                                last_sync=last_sync,
                                sync_logs=sync_logs)
 
+    @app.route('/activity')
+    @login_required
+    def activity():
+        from models import DailyActivity, WorkoutEntry
+        days = DailyActivity.query.filter_by(user_id=current_user.id)\
+            .order_by(DailyActivity.date.desc()).all()
+        workouts_by_date = {}
+        for wo in WorkoutEntry.query.filter_by(user_id=current_user.id)\
+            .with_entities(WorkoutEntry.date, WorkoutEntry.activity_type, WorkoutEntry.duration_min, WorkoutEntry.calories_burned)\
+            .order_by(WorkoutEntry.date.desc()).all():
+            workouts_by_date.setdefault(wo.date, []).append(wo)
+        totals = {
+            'steps': sum(d.steps or 0 for d in days),
+            'calories': sum(d.calories_burned or 0 for d in days),
+            'workouts': sum(1 for v in workouts_by_date.values() for _ in v),
+            'days': len(days),
+        }
+        return render_template('activity.html', days=days, workouts=workouts_by_date, totals=totals)
+
     @app.route('/auth/google')
     @login_required
     def auth_google():
