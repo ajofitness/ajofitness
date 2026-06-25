@@ -496,15 +496,28 @@ def sync_google_fit(user, db_session):
             stats['workouts'] += 1
 
         # Daily aggregates: steps, calories, distance, heart_rate
-        # Try without dataSourceId (Google picks best), plus merge + estimated
+        # Query ALL step delta sources individually to identify watch device
         steps_data = {}
-        for src in [None,
-                     'derived:com.google.step_count.delta:com.google.android.gms:merge_step_deltas',
-                     'derived:com.google.step_count.delta:com.google.android.gms:estimated_steps']:
-            s = fetch_aggregate(token, 'com.google.step_count.delta', src, start_date, today, 'int')
-            label = src.split(':')[-1] if src else 'best'
+        for src_param in [None,
+                          'derived:com.google.step_count.delta:com.google.android.gms:merge_step_deltas',
+                          'derived:com.google.step_count.delta:com.google.android.gms:estimated_steps',
+                          'derived:com.google.step_count.delta:com.google.android.gms:Xiaomi:M2007J20CG:b60659ba:derive_step_deltas<-raw:com.google.step_count.cumulative:Xiaomi:M2007J20CG:b60659ba:pedometer  Non-wakeup']:
+            s = fetch_aggregate(token, 'com.google.step_count.delta', src_param, start_date, today, 'int')
+            label = src_param.split(':')[-1].split('<-')[0].strip() if src_param else 'best'
             if s:
                 logger.info(f'  [{label}] steps: {s}')
+            for day, steps in s.items():
+                steps_data[day] = max(steps_data.get(day, 0), steps)
+        # Also try each top_level source individually
+        for src_param in ['derived:com.google.step_count.delta:com.google.android.fit:Xiaomi:24069PC21G:5a127af9:top_level',
+                          'derived:com.google.step_count.delta:com.google.android.fit:Xiaomi:M2007J20CG:b60659ba:top_level',
+                          'derived:com.google.step_count.delta:com.google.android.fit:Xiaomi:M2007J20CG:ce2f2cc6:top_level',
+                          'derived:com.google.step_count.delta:com.google.android.fit:realme:RMX2170:72a960b:top_level',
+                          'derived:com.google.step_count.delta:com.nike.plusgps:STEP_COUNT_DELTA']:
+            s = fetch_aggregate(token, 'com.google.step_count.delta', src_param, start_date, today, 'int')
+            device = src_param.split(':')[4]
+            if s:
+                logger.info(f'  [{device} top_level] steps: {s}')
             for day, steps in s.items():
                 steps_data[day] = max(steps_data.get(day, 0), steps)
         logger.info(f'Steps data final ({len(steps_data)} days): {steps_data}')
