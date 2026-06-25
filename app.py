@@ -46,6 +46,8 @@ def _migrate_schema(engine):
         'google_refresh_token': 'TEXT',
         'google_token_expiry': 'DATETIME',
         'last_sync_at': 'DATETIME',
+        'approved': 'BOOLEAN DEFAULT 1',
+        'is_admin': 'BOOLEAN DEFAULT 0',
     }
     for col, col_type in additions.items():
         if col not in columns:
@@ -53,6 +55,16 @@ def _migrate_schema(engine):
                 conn.execute(sa.text(f'ALTER TABLE users ADD COLUMN {col} {col_type}'))
                 conn.commit()
                 logger.info(f'Added column {col} to users table')
+
+    with engine.connect() as conn:
+        result = conn.execute(sa.text('SELECT id FROM users WHERE is_admin = 1 LIMIT 1'))
+        if not result.fetchone():
+            result = conn.execute(sa.text('SELECT id, email FROM users ORDER BY id LIMIT 1'))
+            row = result.fetchone()
+            if row:
+                conn.execute(sa.text('UPDATE users SET is_admin = 1, approved = 1 WHERE id = :uid'), {'uid': row[0]})
+                conn.commit()
+                logger.info(f'User {row[1]} set as admin')
 
 
 _IT_DAYS = ['lunedì', 'martedì', 'mercoledì', 'giovedì', 'venerdì', 'sabato', 'domenica']
@@ -160,6 +172,7 @@ def create_app():
                 height_cm=height, target_weight_kg=target_weight,
                 birth_date=date.fromisoformat(birth),
                 activity_level=activity, deficit_kcal=deficit,
+                approved=False,
             )
             user.set_password(password)
             db.session.add(user)
@@ -171,9 +184,8 @@ def create_app():
                 db.session.add(wl)
                 db.session.commit()
 
-            login_user(user)
-            flash(f'Benvenuto {name}! Pronto per iniziare?', 'success')
-            return redirect(url_for('onboarding'))
+            flash('Registrazione completata. Attendi l\'approvazione dell\'amministratore.', 'info')
+            return redirect(url_for('login'))
         return render_template('register.html',
                                activity_options=ACTIVITY_LABELS,
                                deficit_options=DEFICIT_PRESETS)
@@ -185,6 +197,9 @@ def create_app():
             password = request.form.get('password', '')
             user = User.query.filter_by(email=email).first()
             if user and user.check_password(password):
+                if not user.approved:
+                    flash('Account in attesa di approvazione dell\'amministratore.', 'warning')
+                    return redirect(url_for('login'))
                 login_user(user)
                 flash(f'Bentornato, {user.name}!', 'success')
                 next_page = request.args.get('next') or url_for('dashboard')
@@ -198,6 +213,44 @@ def create_app():
         logout_user()
         flash('Disconnesso. A presto!', 'info')
         return redirect(url_for('index'))
+
+    def admin_required(f):
+        from functools import wraps
+        @wraps(f)
+        def wrapper(*args, **kwargs):
+            if not current_user.is_authenticated or not current_user.is_admin:
+                flash('Accesso negato.', 'danger')
+                return redirect(url_for('index'))
+            return f(*args, **kwargs)
+        return wrapper
+
+    @app.route('/admin/pending')
+    @login_required
+    @admin_required
+    def admin_pending():
+        pending = User.query.filter_by(approved=False).order_by(User.created_at.desc()).all()
+        return render_template('admin_pending.html', pending=pending)
+
+    @app.route('/admin/approve/<int:user_id>', methods=['POST'])
+    @login_required
+    @admin_required
+    def admin_approve(user_id):
+        user = User.query.get_or_404(user_id)
+        user.approved = True
+        db.session.commit()
+        flash(f'Utente {user.name} ({user.email}) approvato.', 'success')
+        return redirect(url_for('admin_pending'))
+
+    @app.route('/admin/reject/<int:user_id>', methods=['POST'])
+    @login_required
+    @admin_required
+    def admin_reject(user_id):
+        user = User.query.get_or_404(user_id)
+        email = user.email
+        db.session.delete(user)
+        db.session.commit()
+        flash(f'Richiesta di {email} rifiutata e rimossa.', 'info')
+        return redirect(url_for('admin_pending'))
 
     @app.route('/login-demo')
     def login_demo():

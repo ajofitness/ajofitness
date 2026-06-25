@@ -27,6 +27,7 @@ def create_demo_user():
         deficit_kcal=500,
         start_date=date.today() - timedelta(days=30),
         is_demo=True,
+        approved=True,
         onboarding_done=True,
     )
     user.set_password('demo1234')

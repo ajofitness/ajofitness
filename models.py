@@ -37,6 +37,8 @@ class User(UserMixin, db.Model):
     google_refresh_token = db.Column(db.Text, nullable=True)
     google_token_expiry = db.Column(db.DateTime, nullable=True)
     last_sync_at = db.Column(db.DateTime, nullable=True)
+    approved = db.Column(db.Boolean, default=True)
+    is_admin = db.Column(db.Boolean, default=False)
 
     weight_logs = db.relationship('WeightLog', backref='user', lazy='dynamic',
                                   cascade='all, delete-orphan')
