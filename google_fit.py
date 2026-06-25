@@ -415,51 +415,23 @@ def sync_google_fit(user, db_session):
         # Daily aggregates: steps, calories, distance, heart_rate
         tz = 2  # UTC+2 Italy summer
 
-        # Steps: sum ALL step_count.delta sources per day
-        steps_data = {}
-        step_dsids = [ds.get('dataStreamId', '') for ds in all_sources
-                      if ds.get('dataType', {}).get('name') == 'com.google.step_count.delta']
-        logger.info(f'All step_count.delta sources ({len(step_dsids)}): {step_dsids}')
-        for dsid in step_dsids:
-            data = fetch_aggregate(token, 'com.google.step_count.delta', dsid, start_date, today, 'int', tz)
-            short_name = dsid.split(':')[-1][:40] if dsid else 'none'
-            logger.info(f'Steps ({short_name}): {data}')
-            for d, v in data.items():
-                steps_data[d] = steps_data.get(d, 0) + v
-        # Fallback: also try without dataSourceId, pick max
-        best_data = fetch_aggregate(token, 'com.google.step_count.delta', None, start_date, today, 'int', tz)
-        logger.info(f'Steps (google_best): {best_data}')
-        for d, v in best_data.items():
-            if v > steps_data.get(d, 0):
-                steps_data[d] = v
+        # Steps: use merge_step_deltas (official merged total, highest single source)
+        steps_data = fetch_aggregate(token, 'com.google.step_count.delta',
+            'derived:com.google.step_count.delta:com.google.android.gms:merge_step_deltas',
+            start_date, today, 'int', tz)
+        logger.info(f'Steps: {steps_data}')
 
-        # Calories: try all individual sources + merge, pick max per day
-        calories_data = {}
-        for ds in all_sources:
-            sid = ds.get('dataStreamId', '')
-            dtype = ds.get('dataType', {}).get('name', '')
-            if dtype != 'com.google.calories.expended':
-                continue
-            data = fetch_aggregate(token, 'com.google.calories.expended', sid, start_date, today, 'float', tz)
-            short_name = sid.split(':')[-1][:40] if sid else 'none'
-            logger.info(f'Calories ({short_name}): {data}')
-            for d, v in data.items():
-                if v > calories_data.get(d, 0):
-                    calories_data[d] = v
+        # Calories: use merge_calories_expended
+        calories_data = fetch_aggregate(token, 'com.google.calories.expended',
+            'derived:com.google.calories.expended:com.google.android.gms:merge_calories_expended',
+            start_date, today, 'float', tz)
+        logger.info(f'Calories: {calories_data}')
 
-        # Distance: try all individual sources + merge, pick max per day
-        distance_data = {}
-        for ds in all_sources:
-            sid = ds.get('dataStreamId', '')
-            dtype = ds.get('dataType', {}).get('name', '')
-            if dtype != 'com.google.distance.delta':
-                continue
-            data = fetch_aggregate(token, 'com.google.distance.delta', sid, start_date, today, 'float', tz)
-            short_name = sid.split(':')[-1][:40] if sid else 'none'
-            logger.info(f'Distance ({short_name}): {data}')
-            for d, v in data.items():
-                if v > distance_data.get(d, 0):
-                    distance_data[d] = v
+        # Distance: use merge_distance_delta
+        distance_data = fetch_aggregate(token, 'com.google.distance.delta',
+            'derived:com.google.distance.delta:com.google.android.gms:merge_distance_delta',
+            start_date, today, 'float', tz)
+        logger.info(f'Distance: {distance_data}')
 
         hr_data = fetch_heart_rate(token, start_date, today, tz)
 
