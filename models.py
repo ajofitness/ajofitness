@@ -308,6 +308,7 @@ class Program(db.Model):
     fasting_hours = db.Column(db.Integer, nullable=True, default=0)
     color = db.Column(db.String(7), nullable=True, default='#ff6b35')
     icon = db.Column(db.String(50), nullable=True, default='bi-star')
+    content = db.Column(db.Text, nullable=True)
     is_active = db.Column(db.Boolean, default=True)
     order = db.Column(db.Integer, default=0)
     created_at = db.Column(db.DateTime, default=utcnow)

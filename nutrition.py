@@ -1,3 +1,4 @@
+import json
 import math
 from dataclasses import dataclass
 from typing import Optional
@@ -514,6 +515,29 @@ BUILTIN_PROGRAMS = [
         'color': '#e74c3c',
         'icon': 'bi-lightning-charge-fill',
         'order': 1,
+        'content': json.dumps({
+            'example_meals': [
+                {'name': 'Colazione', 'description': '2 uova sode, 100g fiocchi di latte, una mela verde, tè verde.'},
+                {'name': 'Pranzo', 'description': '200g petto di pollo alla griglia, 200g broccoli al vapore, 150g riso basmati integrale.'},
+                {'name': 'Cena', 'description': '200g merluzzo al cartoccio, insalata mista con pomodori e cetrioli, 30g mandorle.'},
+                {'name': 'Spuntino pre-allenamento', 'description': 'Una banana con 20g burro d\'arachidi.'},
+            ],
+            'shopping_list': [
+                'Petto di pollo, manzo magro, merluzzo, uova',
+                'Fiocchi di latte, yogurt greco 0%',
+                'Riso basmati, avena, patate dolci',
+                'Broccoli, spinaci, insalata, zucchine, pomodori',
+                'Frutta: mele verdi, banane, frutti di bosco',
+                'Olio d\'oliva, olio di cocco',
+                'Frutta secca: mandorle, noci',
+            ],
+            'tips': [
+                'Mantieni il deficit a 300 kcal — non scendere sotto per non perdere muscolo',
+                'Allenamento di forza 4x/sett, cardio moderato 2x/sett',
+                'Proteine: almeno 1.8g per kg di peso corporeo',
+                'Dormi almeno 7-8 ore — il recupero è metà del risultato',
+            ],
+        }),
     },
     {
         'name': 'Definizione Muscolare',
@@ -530,6 +554,28 @@ BUILTIN_PROGRAMS = [
         'color': '#3498db',
         'icon': 'bi-activity',
         'order': 2,
+        'content': json.dumps({
+            'example_meals': [
+                {'name': 'Colazione', 'description': 'Frullato proteico: 300ml latte scremato, 40g whey, 30g avena, 100g frutti di bosco.'},
+                {'name': 'Pranzo', 'description': '200g filetto di maiale magro all\'arancia, 200g carote al forno, 200g quinoa.'},
+                {'name': 'Cena', 'description': '200g salmone, 150g patate dolci al forno, 200g spinaci saltati con aglio.'},
+                {'name': 'Spuntini', 'description': 'Yogurt greco 0% (200g) con noci, oppure un uovo sodo.'},
+            ],
+            'shopping_list': [
+                'Pollo, filetto di maiale, salmone, uova, manzo magro',
+                'Latte scremato, yogurt greco 0%, whey protein',
+                'Avena, quinoa, patate dolci',
+                'Frutti di bosco, spinaci, carote, insalata, zucchine',
+                'Olio extravergine, spezie, aceto di mele',
+                'Frutta secca: noci, mandorle',
+            ],
+            'tips': [
+                'Deficit leggero (300 kcal) per bruciare grasso senza sacrificare muscolo',
+                'Pasti ogni 3-4 ore per mantenere il metabolismo attivo',
+                'Bevi 2.5L di acqua al giorno',
+                'Pesati ogni settimana alla stessa ora',
+            ],
+        }),
     },
     {
         'name': 'Cheto Start',
@@ -546,6 +592,34 @@ BUILTIN_PROGRAMS = [
         'color': '#9b59b6',
         'icon': 'bi-droplet-half',
         'order': 3,
+        'content': json.dumps({
+            'example_meals': [
+                {'name': 'Colazione', 'description': 'Frittata con 3 uova, 50g formaggio grattugiato, spinaci saltati nel burro. Caffè con panna fresca (no zucchero).'},
+                {'name': 'Pranzo', 'description': 'Petto di pollo alla griglia (200g) con insalata mista, 50g parmigiano, olio d\'oliva, avocado (100g).'},
+                {'name': 'Cena', 'description': 'Salmone al forno (200g) con asparagi al burro e 50g mandorle tritate. Finire con una tisana.'},
+                {'name': 'Spuntini', 'description': 'Noci/mandorle (30g), cetrioli con formaggio spalmabile, olive, sedano con burro d\'arachidi (senza zucchero).'}
+            ],
+            'shopping_list': [
+                'Uova bio',
+                'Burro e panna fresca',
+                'Formaggi stagionati (parmigiano, pecorino, gouda)',
+                'Carne: pollo, manzo, maiale',
+                'Pesce: salmone, sgombro, sardine',
+                'Olio d\'oliva extravergine',
+                'Avocado',
+                'Verdure a basso carbo: spinaci, rucola, zucchine, asparagi, cavolfiore',
+                'Frutta secca: mandorle, noci, noci pecan',
+                'Cocco, farina di mandorle',
+                'Caffè e tè (senza zucchero)',
+                'Sale, spezie, aglio, limone',
+            ],
+            'tips': [
+                'Bevi almeno 3L di acqua al giorno — la chetogenica disidrata',
+                'Integra magnesio, potassio e sale per evitare la "keto flu"',
+                'Non superare i 20g di carbo netti al giorno',
+                'Misura il peso ogni mattina a digiuno',
+            ],
+        }),
     },
     {
         'name': 'Fitness Base',
@@ -562,6 +636,28 @@ BUILTIN_PROGRAMS = [
         'color': '#2ecc71',
         'icon': 'bi-graph-up-arrow',
         'order': 4,
+        'content': json.dumps({
+            'example_meals': [
+                {'name': 'Colazione', 'description': 'Porridge di avena (50g) con latte, una mela e 25g mandorle. Tè o caffè senza zucchero.'},
+                {'name': 'Pranzo', 'description': '150g pasta integrale al pomodoro con 100g mozzarella light e basilico fresco.'},
+                {'name': 'Cena', 'description': '200g orata al cartoccio con patate lesse (150g) e fagiolini saltati in padella.'},
+                {'name': 'Spuntini', 'description': 'Uno yogurt bianco con mirtilli, oppure una pera con 20g di cioccolato fondente.'},
+            ],
+            'shopping_list': [
+                'Pasta integrale, riso, avena, pane integrale',
+                'Pollo, orata, uova, mozzarella light, yogurt',
+                'Patate, carote, zucchine, insalata, pomodori, spinaci',
+                'Frutta: mele, pere, banane, mirtilli',
+                'Olio extravergine, limone, erbe aromatiche',
+                'Legumi: lenticchie, ceci (2-3x/settimana)',
+            ],
+            'tips': [
+                'Deficit moderato (400 kcal) — costanza batte intensità',
+                'Inizia con 3 allenamenti a settimana, alterna forza e cardio leggero',
+                'Non saltare la colazione: dà il via al metabolismo',
+                'Usa la funzione \"Diario\" per registrare ogni pasto — la consapevolezza è il primo passo',
+            ],
+        }),
     },
     {
         'name': 'Massa Magra',
@@ -578,6 +674,29 @@ BUILTIN_PROGRAMS = [
         'color': '#f39c12',
         'icon': 'bi-heart-pulse',
         'order': 5,
+        'content': json.dumps({
+            'example_meals': [
+                {'name': 'Colazione (post-allenamento)', 'description': '5 uova sode, 150g fiocchi di latte, 50g mandorle, una banana.'},
+                {'name': 'Pranzo', 'description': '250g riso basmati con 200g petto di pollo, peperoni saltati e 50g parmigiano grattugiato.'},
+                {'name': 'Cena', 'description': '250g bistecca di manzo ai ferri con 300g patate dolci al forno e insalata mista.'},
+                {'name': 'Spuntino pre-sonno', 'description': '200g yogurt greco con 50g noci pecan e un cucchiaio di miele.'},
+            ],
+            'shopping_list': [
+                'Manzo, pollo, uova, salmone, latte intero',
+                'Yogurt greco, fiocchi di latte, parmigiano',
+                'Riso basmati, patate dolci, avena, pane integrale',
+                'Banane, miele, frutta secca (noci, mandorle, noci pecan)',
+                'Spinaci, peperoni, insalata, broccoli',
+                'Olio d\'oliva, burro d\'arachidi, cioccolato fondente',
+            ],
+            'tips': [
+                'Surplus calorico di 300-500 kcal al giorno sopra il TDEE',
+                'Proteine almeno 2g per kg di peso corporeo',
+                'Allenamento di forza 4x/settimana con sovraccarico progressivo',
+                'Mangia il 30% delle calorie entro 60 minuti dall\'allenamento',
+                'Dormi 8 ore — il muscolo cresce quando riposi, non quando ti alleni',
+            ],
+        }),
     },
     {
         'name': 'Digiuno Intermittente',
@@ -594,6 +713,29 @@ BUILTIN_PROGRAMS = [
         'color': '#1abc9c',
         'icon': 'bi-clock',
         'order': 6,
+        'content': json.dumps({
+            'example_meals': [
+                {'name': 'Finestra alimentare (12:00-20:00)', 'description': 'La tua finestra ideale: pranzo alle 12, cena entro le 20. Solo acqua, caffè amaro e tè fuori dalla finestra.'},
+                {'name': 'Pranzo (apertura finestra)', 'description': '200g pollo alla griglia con 100g quinoa, 200g zucchine grigliate. Un avocado come grassi sani.'},
+                {'name': 'Cena (chiusura finestra)', 'description': '150g salmone al forno, patate dolci (150g), asparagi al limone. Un quadratino cioccolato fondente per concludere.'},
+                {'name': 'Bevande consentite a digiuno', 'description': 'Acqua (anche gassata), caffè nero (senza zucchero né latte), tè verde, tisane non zuccherate.'},
+            ],
+            'shopping_list': [
+                'Pollo, salmone, uova, manzo magro',
+                'Quinoa, patate dolci, avena, riso integrale',
+                'Zucchine, asparagi, spinaci, avocado, insalata',
+                'Caffè in grani, tè verde, tisane',
+                'Olio d\'oliva, limone, aceto di mele',
+                'Cioccolato fondente 85%+',
+            ],
+            'tips': [
+                'Le prime 3-4 giornate sono le più dure — il corpo si adatta al nuovo ritmo',
+                'Bevi acqua appena sveglio: aiuta a ridurre la fame mattutina',
+                'Caffè nero amaro reprime l\'appetito — sfruttalo',
+                'Combina il digiuno con allenamenti a bassa intensità nello stato di fasted',
+                'Non abbuffarti nella finestra alimentare: la qualità conta',
+            ],
+        }),
     },
     {
         'name': 'Mantenimento',
@@ -610,6 +752,15 @@ BUILTIN_PROGRAMS = [
         'color': '#95a5a6',
         'icon': 'bi-shield-check',
         'order': 7,
+        'content': json.dumps({
+            'tips': [
+                'Mantieni le calorie intorno al tuo TDEE: nessun deficit, nessun surplus',
+                'Continua a pesarti 1-2 volte a settimana per monitorare eventuali derive',
+                'Flessibilità alimentare: concediti gli sgarri, ma con consapevolezza',
+                '3 allenamenti a settimana sono sufficienti per mantenere i risultati',
+                'Se vedi il peso salire per 2 settimane consecutive, riduci 100-200 kcal al giorno',
+            ],
+        }),
     },
 ]
 
@@ -622,6 +773,8 @@ def seed_programs(db_session):
         if not existing:
             prog = Program(**pdef)
             db_session.add(prog)
+        elif 'content' in pdef:
+            existing.content = pdef.get('content')
     db_session.commit()
 
 

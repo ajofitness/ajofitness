@@ -62,6 +62,13 @@ def _migrate_schema(engine):
         conn.commit()
         logger.info('User roberto.deliperi@gmail.com set as admin')
 
+    prog_cols = {c['name'] for c in inspector.get_columns('programs')}
+    if 'content' not in prog_cols:
+        with engine.connect() as conn:
+            conn.execute(sa.text('ALTER TABLE programs ADD COLUMN content TEXT'))
+            conn.commit()
+            logger.info('Added column content to programs table')
+
 
 _IT_DAYS = ['lunedì', 'martedì', 'mercoledì', 'giovedì', 'venerdì', 'sabato', 'domenica']
 _IT_MONTHS = ['gennaio', 'febbraio', 'marzo', 'aprile', 'maggio', 'giugno', 'luglio', 'agosto', 'settembre', 'ottobre', 'novembre', 'dicembre']
@@ -97,6 +104,14 @@ def create_app():
     @login_manager.user_loader
     def load_user(user_id):
         return User.query.get(int(user_id))
+
+    @app.template_filter('from_json')
+    def from_json_filter(val):
+        import json
+        try:
+            return json.loads(val) if val else {}
+        except (json.JSONDecodeError, TypeError):
+            return {}
 
     @app.template_filter('localtime')
     def to_localtime(dt):

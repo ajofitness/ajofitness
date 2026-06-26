@@ -1,5 +1,8 @@
 {% extends "base.html" %}
 {% block title %}{{ APP_NAME }} - {{ program.name }}{% endblock %}
+
+{% set ns = namespace(content = program.content|from_json) %}
+
 {% block content %}
 <div class="container py-4">
   <a href="{{ url_for('programs') }}" class="btn ft-btn-outline btn-sm mb-3">
@@ -91,6 +94,54 @@
           </div>
         </div>
       </div>
+
+      {% if ns.content.example_meals %}
+      <div class="ft-card mb-4">
+        <div class="card-header ft-card-header">
+          <h3><i class="bi bi-journal-text" style="color: {{ program.color }};"></i> Pasti esempio</h3>
+        </div>
+        <div class="card-body">
+          {% for meal in ns.content.example_meals %}
+          <div class="p-2 rounded-2 mb-2" style="background: var(--bg-card-hover);">
+            <div class="fw-bold small" style="color: {{ program.color }};">{{ meal.name }}</div>
+            <p class="mb-0 small text-light-50">{{ meal.description }}</p>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+      {% endif %}
+
+      {% if ns.content.shopping_list %}
+      <div class="ft-card mb-4">
+        <div class="card-header ft-card-header">
+          <h3><i class="bi bi-cart-check" style="color: {{ program.color }};"></i> Lista della spesa</h3>
+        </div>
+        <div class="card-body">
+          {% for item in ns.content.shopping_list %}
+          <div class="d-flex align-items-center gap-2 py-1">
+            <i class="bi bi-check2 text-success small"></i>
+            <span class="small">{{ item }}</span>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+      {% endif %}
+
+      {% if ns.content.tips %}
+      <div class="ft-card mb-4">
+        <div class="card-header ft-card-header">
+          <h3><i class="bi bi-lightbulb" style="color: {{ program.color }};"></i> Consigli</h3>
+        </div>
+        <div class="card-body">
+          {% for tip in ns.content.tips %}
+          <div class="d-flex align-items-start gap-2 py-1">
+            <i class="bi bi-arrow-right-circle small" style="color: {{ program.color }}; margin-top: 2px;"></i>
+            <span class="small">{{ tip }}</span>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+      {% endif %}
 
       <div class="ft-card mb-4">
         <div class="card-body text-center">
