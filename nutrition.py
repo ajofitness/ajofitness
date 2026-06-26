@@ -501,8 +501,9 @@ def generate_coach_messages(user, today=None):
         ai_msg = _generate_ai_coach_message(user)
         if ai_msg:
             messages.insert(0, ai_msg)
-    except Exception:
-        pass
+    except Exception as e:
+        import logging
+        logging.getLogger('ajo.sync').warning(f'AI Coach error: {e}')
 
     return messages
 
@@ -510,10 +511,14 @@ def generate_coach_messages(user, today=None):
 def _generate_ai_coach_message(user):
     from flask import current_app
     import requests as _req
+    import logging
+    logger = logging.getLogger('ajo.sync')
 
     api_key = current_app.config.get('GEMINI_API_KEY', '')
     if not api_key:
+        logger.info('AI Coach: GEMINI_API_KEY non configurata')
         return None
+    logger.info('AI Coach: API key trovata, chiamo Gemini...')
 
     w = user.current_weight or user.target_weight_kg or 75
     target = user.target_weight_kg or 0
@@ -556,6 +561,7 @@ Rispondi con un solo messaggio motivazionale e concreto in italiano, senza salut
         if resp.status_code == 200:
             text = resp.json().get('candidates', [{}])[0].get('content', {}).get('parts', [{}])[0].get('text', '')
             if text:
+                logger.info(f'AI Coach: risposta Gemini OK ({len(text)} chars)')
                 return {
                     'icon': '🤖',
                     'type': 'ai_coach',
