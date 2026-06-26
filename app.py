@@ -89,9 +89,8 @@ def create_app():
         if Food.query.count() == 0:
             populate_foods(db)
             logger.info('Foods table populated.')
-        if Program.query.count() == 0:
-            seed_programs(db.session)
-            logger.info('Programs seeded.')
+        seed_programs(db.session)
+        logger.info('Programs seeded.')
 
     csrf = CSRFProtect()
     csrf.init_app(app)
