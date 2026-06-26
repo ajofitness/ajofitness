@@ -766,6 +766,7 @@ def create_app():
         if food.user_id != current_user.id:
             flash('Non autorizzato.', 'danger')
             return redirect(url_for('diary'))
+        MealEntry.query.filter_by(custom_food_id=food_id).update({MealEntry.custom_food_id: None})
         db.session.delete(food)
         db.session.commit()
         flash('Alimento rimosso.', 'info')
