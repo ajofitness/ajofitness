@@ -49,6 +49,7 @@ def _migrate_schema(engine):
         'last_sync_at': 'DATETIME',
         'approved': 'BOOLEAN DEFAULT TRUE',
         'is_admin': 'BOOLEAN DEFAULT FALSE',
+        'coach_id': 'INTEGER REFERENCES users(id)',
     }
     for col, col_type in additions.items():
         if col not in columns:
