@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{% block title %}{{ APP_NAME }} - {{ challenge.name }}{% endblock %}
+{% block content %}
+<div class="container py-4">
+  <a href="{{ url_for('challenges') }}" class="btn ft-btn-outline btn-sm mb-3">
+    <i class="bi bi-arrow-left"></i> Tutte le sfide
+  </a>
+
+  <div class="ft-card mb-4">
+    <div class="card-body">
+      <div class="d-flex align-items-center gap-3 mb-3">
+        <div class="fs-1"><i class="bi bi-trophy" style="color: #ffc107;"></i></div>
+        <div>
+          <h2 class="fw-bold mb-1">{{ challenge.name }}</h2>
+          <p class="text-light-50 mb-0">{{ challenge.description }}</p>
+        </div>
+      </div>
+      <div class="d-flex gap-3 flex-wrap">
+        <span class="badge bg-info">{{ challenge.challenge_type }}</span>
+        <span class="badge bg-secondary">Obiettivo: {{ challenge.target }}</span>
+        <span class="badge bg-secondary">{{ challenge.start_date.strftime('%d/%m') }} - {{ challenge.end_date.strftime('%d/%m') }}</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="ft-card">
+    <div class="card-header ft-card-header">
+      <h3><i class="bi bi-people"></i> Classifica</h3>
+    </div>
+    <div class="card-body">
+      {% if participants %}
+      <table class="table table-dark table-hover mb-0">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Partecipante</th>
+            <th>Progresso</th>
+            <th>%</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for p in participants %}
+          <tr class="{{ 'table-active' if p.user_id == current_user.id }}">
+            <td>{{ loop.index }}</td>
+            <td>{{ p.user.name }}</td>
+            <td>{{ p.progress|round(0) }}</td>
+            <td>{{ (p.progress / challenge.target * 100)|round(0) if challenge.target > 0 else 0 }}%</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      {% else %}
+      <p class="text-light-50 text-center py-3 mb-0">Nessun partecipante ancora.</p>
+      {% endif %}
+    </div>
+  </div>
+</div>
+{% endblock %}

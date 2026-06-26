@@ -11,6 +11,20 @@
   <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
   <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
   <link href="{{ url_for('static', filename='css/style.css') }}" rel="stylesheet">
+  <style>
+    :root {
+      --season-accent: {{ season.accent }};
+      --season-bg: {{ season.bg }};
+    }
+    body::before {
+      content: '';
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: radial-gradient(ellipse at 50% 0%, {{ season.bg }}, transparent 70%);
+      pointer-events: none;
+      z-index: -1;
+    }
+  </style>
   {% if current_user.is_authenticated %}
   <meta name="csrf-token" content="{{ csrf_token() }}">
   {% endif %}
@@ -41,6 +55,8 @@
         <li class="nav-item"><a class="nav-link" href="{{ url_for('photos') }}"><i class="bi bi-camera"></i> Foto</a></li>
         <li class="nav-item"><a class="nav-link" href="{{ url_for('fasting') }}"><i class="bi bi-clock"></i> Digiuno</a></li>
         <li class="nav-item"><a class="nav-link" href="{{ url_for('coach') }}"><i class="bi bi-chat-quote"></i> Coach</a></li>
+        <li class="nav-item"><a class="nav-link" href="{{ url_for('meal_planner') }}"><i class="bi bi-calendar-week"></i> Piano pasti</a></li>
+        <li class="nav-item"><a class="nav-link" href="{{ url_for('challenges') }}"><i class="bi bi-trophy"></i> Sfide</a></li>
         <li class="nav-item"><a class="nav-link" href="{{ url_for('profile') }}"><i class="bi bi-person-circle"></i> Profilo</a></li>
         {% if current_user.is_authenticated and current_user.is_admin %}
         <li class="nav-item"><a class="nav-link text-warning" href="{{ url_for('admin_pending') }}"><i class="bi bi-shield-check"></i> Admin</a></li>
@@ -63,6 +79,13 @@
     </div>
   </div>
 </nav>
+{% endif %}
+
+{% if is_guest %}
+<div class="guest-banner" style="background: var(--accent-dim); color: var(--accent); text-align: center; padding: 8px;">
+  <i class="bi bi-person"></i> Modalità ospite ({{ guest_name }})
+  <a href="{{ url_for('register') }}" class="text-decoration-underline ms-2" style="color: var(--accent);">Registrati per salvare i dati</a>
+</div>
 {% endif %}
 
 <div class="ft-flash-container">

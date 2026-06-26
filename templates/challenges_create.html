@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+{% block title %}{{ APP_NAME }} - Crea Sfida{% endblock %}
+{% block content %}
+<div class="container py-4" style="max-width: 600px;">
+  <a href="{{ url_for('challenges') }}" class="btn ft-btn-outline btn-sm mb-3">
+    <i class="bi bi-arrow-left"></i> Tutte le sfide
+  </a>
+  <div class="ft-card">
+    <div class="card-body">
+      <h2 class="fw-bold mb-4">Crea una sfida</h2>
+      <form method="post">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="mb-3">
+          <label class="form-label">Nome della sfida</label>
+          <input type="text" name="name" class="form-control" required placeholder="Es. 10.000 passi challenge">
+        </div>
+        <div class="mb-3">
+          <label class="form-label">Descrizione</label>
+          <textarea name="description" class="form-control" rows="2" placeholder="Descrivi la sfida..."></textarea>
+        </div>
+        <div class="mb-3">
+          <label class="form-label">Tipo</label>
+          <select name="challenge_type" class="form-select">
+            <option value="steps">Passi</option>
+            <option value="workouts">Allenamenti</option>
+            <option value="water">Acqua (litri)</option>
+            <option value="calories">Calorie bruciate</option>
+            <option value="custom">Personalizzato</option>
+          </select>
+        </div>
+        <div class="mb-3">
+          <label class="form-label">Obiettivo</label>
+          <input type="number" name="target" class="form-control" value="10000" step="1" required>
+        </div>
+        <div class="row g-3 mb-3">
+          <div class="col-6">
+            <label class="form-label">Data inizio</label>
+            <input type="date" name="start_date" class="form-control" value="{{ today().isoformat() }}">
+          </div>
+          <div class="col-6">
+            <label class="form-label">Data fine</label>
+            <input type="date" name="end_date" class="form-control" value="{{ (today() + timedelta(days=7)).isoformat() }}">
+          </div>
+        </div>
+        <button type="submit" class="btn ft-btn-primary w-100"><i class="bi bi-rocket-takeoff"></i> Crea sfida</button>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}

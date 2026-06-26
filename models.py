@@ -40,10 +40,15 @@ class User(UserMixin, db.Model):
     approved = db.Column(db.Boolean, default=True)
     is_admin = db.Column(db.Boolean, default=False)
 
+    coach_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)
+    coach = db.relationship('User', remote_side='User.id', backref='clients')
+
     weight_logs = db.relationship('WeightLog', backref='user', lazy='dynamic',
                                   cascade='all, delete-orphan')
     meal_entries = db.relationship('MealEntry', backref='user', lazy='dynamic',
                                    cascade='all, delete-orphan')
+    meal_plans = db.relationship('MealPlan', backref='user', lazy='dynamic',
+                                 cascade='all, delete-orphan')
     workout_entries = db.relationship('WorkoutEntry', backref='user', lazy='dynamic',
                                       cascade='all, delete-orphan')
     water_entries = db.relationship('WaterEntry', backref='user', lazy='dynamic',
@@ -54,6 +59,8 @@ class User(UserMixin, db.Model):
                                    cascade='all, delete-orphan')
     goals = db.relationship('Goal', backref='user', lazy='dynamic',
                             cascade='all, delete-orphan')
+    push_subscriptions = db.relationship('PushSubscription', backref='user', lazy='dynamic',
+                                         cascade='all, delete-orphan')
 
     def set_password(self, password):
         self.password_hash = generate_password_hash(password)
@@ -186,6 +193,51 @@ class MealEntry(db.Model):
             return round(self.food.fat_g * self.quantity_g / 100, 1)
         if self.custom_food:
             return round(self.custom_food.fat_g * self.quantity_g / 100, 1)
+        return 0
+
+
+class MealPlan(db.Model):
+    __tablename__ = 'meal_plans'
+
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    week_start = db.Column(db.Date, nullable=False)
+    created_at = db.Column(db.DateTime, default=utcnow)
+    __table_args__ = (db.UniqueConstraint('user_id', 'week_start', name='uq_user_week'),)
+
+    entries = db.relationship('MealPlanEntry', backref='plan', lazy='dynamic',
+                              cascade='all, delete-orphan')
+
+
+class MealPlanEntry(db.Model):
+    __tablename__ = 'meal_plan_entries'
+
+    id = db.Column(db.Integer, primary_key=True)
+    meal_plan_id = db.Column(db.Integer, db.ForeignKey('meal_plans.id'), nullable=False)
+    day = db.Column(db.Integer, nullable=False)
+    meal_type = db.Column(db.String(20), nullable=False)
+    food_id = db.Column(db.Integer, db.ForeignKey('foods.id'), nullable=True)
+    custom_food_id = db.Column(db.Integer, db.ForeignKey('custom_foods.id'), nullable=True)
+    quantity_g = db.Column(db.Float, nullable=False)
+    notes = db.Column(db.String(200), nullable=True)
+
+    food = db.relationship('Food', foreign_keys=[food_id])
+    custom_food = db.relationship('CustomFood', foreign_keys=[custom_food_id])
+
+    @property
+    def display_name(self):
+        if self.food:
+            return self.food.name
+        if self.custom_food:
+            return self.custom_food.name
+        return 'Sconosciuto'
+
+    @property
+    def kcal(self):
+        if self.food:
+            return round(self.food.kcal_per_100g * self.quantity_g / 100, 1)
+        if self.custom_food:
+            return round(self.custom_food.kcal_per_100g * self.quantity_g / 100, 1)
         return 0
 
 
@@ -380,3 +432,46 @@ class DailyActivity(db.Model):
 
     def __repr__(self):
         return f'<DailyActivity {self.date} steps={self.steps} kcal={self.calories_burned}>'
+
+
+class Challenge(db.Model):
+    __tablename__ = 'challenges'
+
+    id = db.Column(db.Integer, primary_key=True)
+    creator_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    name = db.Column(db.String(100), nullable=False)
+    description = db.Column(db.Text, nullable=True)
+    challenge_type = db.Column(db.String(30), nullable=False)
+    target = db.Column(db.Float, nullable=False)
+    start_date = db.Column(db.Date, nullable=False)
+    end_date = db.Column(db.Date, nullable=False)
+    is_active = db.Column(db.Boolean, default=True)
+    created_at = db.Column(db.DateTime, default=utcnow)
+
+    creator = db.relationship('User', foreign_keys=[creator_id])
+    participants = db.relationship('ChallengeParticipant', backref='challenge', lazy='dynamic',
+                                   cascade='all, delete-orphan')
+
+
+class ChallengeParticipant(db.Model):
+    __tablename__ = 'challenge_participants'
+
+    id = db.Column(db.Integer, primary_key=True)
+    challenge_id = db.Column(db.Integer, db.ForeignKey('challenges.id'), nullable=False)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    progress = db.Column(db.Float, default=0.0)
+    joined_at = db.Column(db.DateTime, default=utcnow)
+
+    user = db.relationship('User', foreign_keys=[user_id])
+    __table_args__ = (db.UniqueConstraint('challenge_id', 'user_id', name='uq_challenge_user'),)
+
+
+class PushSubscription(db.Model):
+    __tablename__ = 'push_subscriptions'
+
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    endpoint = db.Column(db.Text, nullable=False)
+    p256dh = db.Column(db.String(256), nullable=False)
+    auth = db.Column(db.String(256), nullable=False)
+    created_at = db.Column(db.DateTime, default=utcnow)

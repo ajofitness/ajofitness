@@ -104,4 +104,43 @@ document.addEventListener('DOMContentLoaded', function() {
     startReminderPolling();
     checkForReminder();
   }, 30000);
+
+  // Push subscription
+  function subscribePush() {
+    if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
+    fetch('/api/push/public-key')
+      .then(function(r) { return r.json(); })
+      .then(function(data) {
+        if (!data.key) return;
+        navigator.serviceWorker.ready.then(function(reg) {
+          reg.pushManager.subscribe({
+            userVisibleOnly: true,
+            applicationServerKey: urlBase64ToUint8Array(data.key),
+          }).then(function(sub) {
+            fetch('/api/push/subscribe', {
+              method: 'POST',
+              headers: {'Content-Type': 'application/json', 'X-CSRFToken': getCSRFToken()},
+              body: JSON.stringify(sub.toJSON()),
+            }).catch(function() {});
+          }).catch(function() {});
+        });
+      }).catch(function() {});
+  }
+
+  function urlBase64ToUint8Array(base64String) {
+    var padding = '='.repeat((4 - base64String.length % 4) % 4);
+    var base64 = (base64String + padding).replace(/\-/g, '+').replace(/_/g, '/');
+    var rawData = window.atob(base64);
+    var output = new Uint8Array(rawData.length);
+    for (var i = 0; i < rawData.length; ++i) {
+      output[i] = rawData.charCodeAt(i);
+    }
+    return output;
+  }
+
+  setTimeout(function() {
+    if ('Notification' in window && Notification.permission === 'granted') {
+      subscribePush();
+    }
+  }, 10000);
 });

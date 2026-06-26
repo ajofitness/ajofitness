@@ -515,3 +515,244 @@ def test_fasting_badge_3(app, db):
         new = check_new_badges(user, db.session)
         names = {b['name'] for b in new}
         assert 'Digiunatore' in names
+
+
+# --- NEW FEATURE TESTS ---
+
+def test_meal_planner_page(client, app):
+    """Feature 2: Meal planner page loads for authenticated user."""
+    from models import User, db, Food, MealPlan, MealPlanEntry
+    food_id = None
+    with app.app_context():
+        user = User(email='planner@test.com', name='Planner', gender='M',
+                    height_cm=175, target_weight_kg=70, birth_date=date(1990, 1, 1))
+        user.set_password('p')
+        db.session.add(user)
+        food = Food(name='Test Pasta', category='Cereali', kcal_per_100g=350,
+                    protein_g=10, carbs_g=70, fat_g=2, fiber_g=2, default_portion_g=80)
+        db.session.add(food)
+        db.session.commit()
+        food_id = food.id
+        client.post('/login', data={'email': 'planner@test.com', 'password': 'p'})
+
+    resp = client.get('/meal-planner')
+    assert resp.status_code == 200
+    assert b'Piano Pasti Settimanale' in resp.data
+
+    # Add meal to plan
+    resp2 = client.post('/meal-planner/add', data={
+        'week_start': date.today().isoformat(),
+        'day': '0', 'meal_type': 'lunch', 'food_id': str(food_id),
+        'quantity_g': '100', 'notes': '',
+    })
+    assert resp2.status_code == 302
+
+    # Check plan exists
+    with app.app_context():
+        plan = MealPlan.query.filter_by(user_id=user.id).first()
+        assert plan is not None
+        assert plan.entries.count() == 1
+
+
+def test_meal_planner_shopping_list(client, app):
+    """Feature 2: Shopping list generated from meal plan."""
+    from models import User, db, Food, MealPlan, MealPlanEntry
+    from nutrition import get_meal_plan_summary
+    with app.app_context():
+        user = User(email='shop@test.com', name='Shop', gender='M',
+                    height_cm=175, target_weight_kg=70, birth_date=date(1990, 1, 1))
+        user.set_password('p')
+        db.session.add(user)
+        f1 = Food(name='Pasta', category='Cereali', kcal_per_100g=350,
+                  protein_g=10, carbs_g=70, fat_g=2, fiber_g=2, default_portion_g=80)
+        db.session.add(f1)
+        db.session.commit()
+        plan = MealPlan(user_id=user.id, week_start=date.today())
+        db.session.add(plan)
+        db.session.flush()
+        db.session.add(MealPlanEntry(meal_plan_id=plan.id, day=0, meal_type='lunch',
+                                     food_id=f1.id, quantity_g=200))
+        db.session.commit()
+        summary = get_meal_plan_summary(plan)
+        assert summary['meal_count'] == 1
+        assert len(summary['shopping_list']) == 1
+        assert summary['shopping_list'][0]['name'] == 'Pasta'
+        assert summary['shopping_list'][0]['total_g'] == 200
+
+
+def test_challenge_create_and_join(client, app):
+    """Feature 3: Create and join challenges."""
+    from models import User, db, Challenge, ChallengeParticipant
+    with app.app_context():
+        user = User(email='creator@test.com', name='Creator', gender='M',
+                    height_cm=175, target_weight_kg=70, birth_date=date(1990, 1, 1))
+        user.set_password('p')
+        db.session.add(user)
+        db.session.commit()
+        client.post('/login', data={'email': 'creator@test.com', 'password': 'p'})
+
+    resp = client.get('/challenges')
+    assert resp.status_code == 200
+    assert b'Sfide' in resp.data
+
+    resp2 = client.post('/challenges/create', data={
+        'name': 'Test Challenge', 'description': 'Test desc',
+        'challenge_type': 'steps', 'target': '10000',
+        'start_date': date.today().isoformat(),
+        'end_date': (date.today().__add__(__import__('datetime').timedelta(days=7))).isoformat(),
+    })
+    assert resp2.status_code == 302
+
+    with app.app_context():
+        c = Challenge.query.filter_by(name='Test Challenge').first()
+        assert c is not None
+        assert c.participants.count() == 1
+
+
+def test_challenge_detail(client, app):
+    """Feature 3: Challenge detail page."""
+    from models import User, db, Challenge, ChallengeParticipant
+    with app.app_context():
+        user = User(email='detail@test.com', name='Detail', gender='M',
+                    height_cm=175, target_weight_kg=70, birth_date=date(1990, 1, 1))
+        user.set_password('p')
+        db.session.add(user)
+        db.session.commit()
+        c = Challenge(creator_id=user.id, name='Detail Challenge',
+                      challenge_type='steps', target=10000,
+                      start_date=date.today(), end_date=date.today())
+        db.session.add(c)
+        db.session.flush()
+        db.session.add(ChallengeParticipant(challenge_id=c.id, user_id=user.id))
+        db.session.commit()
+        client.post('/login', data={'email': 'detail@test.com', 'password': 'p'})
+
+    with app.app_context():
+        c = Challenge.query.filter_by(name='Detail Challenge').first()
+        resp = client.get(f'/challenges/{c.id}')
+        assert resp.status_code == 200
+        assert b'Detail Challenge' in resp.data
+        assert b'Classifica' in resp.data
+
+
+def test_pdf_report_endpoint(client, app):
+    """Feature 5: PDF report generates."""
+    from models import User, db, WeightLog
+    with app.app_context():
+        user = User(email='pdf@test.com', name='PDF User', gender='M',
+                    height_cm=175, target_weight_kg=70, birth_date=date(1990, 1, 1))
+        user.set_password('p')
+        db.session.add(user)
+        db.session.flush()
+        db.session.add(WeightLog(user_id=user.id, weight=80, date=date.today()))
+        db.session.commit()
+        client.post('/login', data={'email': 'pdf@test.com', 'password': 'p'})
+
+    resp = client.get('/report/pdf')
+    assert resp.status_code == 200
+    assert resp.mimetype == 'application/pdf'
+    assert 'pdf' in resp.headers.get('Content-Disposition', '')
+
+
+def test_guest_mode(client, app):
+    """Feature 9: Guest mode sets session."""
+    resp = client.get('/guest-login?name=TestOspite')
+    assert resp.status_code == 302
+    with client.session_transaction() as sess:
+        assert sess.get('guest_name') == 'TestOspite'
+
+
+def test_season_api(client):
+    """Feature 10: Season API returns valid data."""
+    resp = client.get('/api/season')
+    assert resp.status_code == 200
+    data = resp.get_json()
+    assert 'name' in data
+    assert data['name'] in ['primavera', 'estate', 'autunno', 'inverno']
+
+
+def test_push_subscribe_and_unsubscribe(client, app):
+    """Feature 4: Push subscription endpoints."""
+    from models import User, db, PushSubscription
+    with app.app_context():
+        user = User(email='push@test.com', name='Push', gender='M',
+                    height_cm=175, target_weight_kg=70, birth_date=date(1990, 1, 1))
+        user.set_password('p')
+        db.session.add(user)
+        db.session.commit()
+        client.post('/login', data={'email': 'push@test.com', 'password': 'p'})
+
+    resp = client.post('/api/push/subscribe', json={
+        'endpoint': 'https://test.push.com/ep1',
+        'keys': {'p256dh': 'abc', 'auth': '123'},
+    })
+    assert resp.status_code == 200
+
+    with app.app_context():
+        sub = PushSubscription.query.filter_by(endpoint='https://test.push.com/ep1').first()
+        assert sub is not None
+
+    resp2 = client.post('/api/push/unsubscribe', json={
+        'endpoint': 'https://test.push.com/ep1',
+    })
+    assert resp2.status_code == 200
+
+    with app.app_context():
+        sub = PushSubscription.query.filter_by(endpoint='https://test.push.com/ep1').first()
+        assert sub is None
+
+
+def test_report_data_generation(app):
+    """Feature 5: Report data function works."""
+    from models import User, db, WeightLog, WorkoutEntry, MealEntry, Food
+    from nutrition import generate_report_data
+    with app.app_context():
+        user = User(email='report_data@test.com', name='Report Data', gender='M',
+                    height_cm=175, target_weight_kg=70, birth_date=date(1990, 1, 1))
+        user.set_password('p')
+        db.session.add(user)
+        db.session.flush()
+        db.session.add(WeightLog(user_id=user.id, weight=80, date=date.today()))
+        f = Food(name='Test', category='Test', kcal_per_100g=100,
+                 protein_g=10, carbs_g=10, fat_g=2, fiber_g=1, default_portion_g=100)
+        db.session.add(f)
+        db.session.commit()
+
+        data = generate_report_data(user)
+        assert data['user'].name == 'Report Data'
+        assert data['plan'] is not None
+        assert len(data['weights']) == 1
+        assert data['last_weight'] == 80
+
+
+def test_coach_dashboard_no_clients(client, app):
+    """Feature 7: Coach dashboard renders."""
+    from models import User, db
+    with app.app_context():
+        user = User(email='coach@test.com', name='Coach', gender='M',
+                    height_cm=175, target_weight_kg=70, birth_date=date(1990, 1, 1), is_admin=True)
+        user.set_password('p')
+        db.session.add(user)
+        db.session.commit()
+        client.post('/login', data={'email': 'coach@test.com', 'password': 'p'})
+
+    resp = client.get('/coach/dashboard')
+    assert resp.status_code == 200
+    assert b'Dashboard Coach' in resp.data
+
+
+def test_inran_foods_loaded(app):
+    """Feature 8: INRAN foods seeded on startup."""
+    from models import db, Food
+    with app.app_context():
+        count = Food.query.count()
+        assert count > 0, 'No foods loaded'
+
+
+def test_season_theme_in_context(app):
+    """Feature 10: Season in context processor."""
+    from nutrition import get_current_season
+    season = get_current_season()
+    assert 'name' in season
+    assert 'accent' in season
+    assert 'bg' in season

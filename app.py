@@ -6,19 +6,20 @@ import json
 import logging
 import base64
 from datetime import datetime, date, timedelta
-from flask import Flask, render_template, redirect, url_for, request, flash, jsonify, Response
+from flask import Flask, render_template, redirect, url_for, request, flash, jsonify, Response, session, abort
 from flask_login import LoginManager, login_user, logout_user, login_required, current_user
 from flask_wtf.csrf import CSRFProtect, generate_csrf
 from sqlalchemy import desc, func
 
 from config import Config
-from models import db, User, WeightLog, Food, CustomFood, MealEntry, WaterEntry, Measurement, WorkoutEntry, Goal, Badge, ProgressPhoto, FastingEntry, Program, ProgramEnrollment, utcnow
+from models import db, User, WeightLog, Food, CustomFood, MealEntry, MealPlan, MealPlanEntry, WaterEntry, Measurement, WorkoutEntry, Goal, Badge, ProgressPhoto, FastingEntry, Program, ProgramEnrollment, Challenge, ChallengeParticipant, PushSubscription, utcnow
 from nutrition import (
     build_plan, calculate_bmr, calculate_tdee, calculate_bmi, bmi_category,
     calories_burned, ACTIVITY_LABELS, ACTIVITY_METS, ACTIVITY_LABELS_IT,
     macro_summary_for_meals, DEFICIT_PRESETS, DIET_PRESETS, body_fat_percentage,
     calculate_streak, check_new_badges, BADGE_DEFINITIONS, adapt_plan_from_history,
     generate_coach_messages, seed_programs, get_program_progress, get_daily_checklist,
+    get_meal_plan_summary, generate_report_data, get_current_season,
 )
 from foods_data import populate_foods
 from google_fit import generate_auth_url, exchange_code, refresh_access_token, sync_google_fit
@@ -121,6 +122,8 @@ def create_app():
 
     @app.context_processor
     def inject_globals():
+        season = get_current_season()
+        is_guest = session.get('guest_name') and not current_user.is_authenticated
         return {
             'APP_NAME': 'AjòFitness',
             'current_year': datetime.now().year,
@@ -128,6 +131,9 @@ def create_app():
             'timedelta': timedelta,
             'csrf_token': generate_csrf,
             'date_italian': date_italian,
+            'season': season,
+            'is_guest': is_guest,
+            'guest_name': session.get('guest_name') if is_guest else None,
         }
 
     @app.route('/')
@@ -1399,6 +1405,315 @@ def create_app():
             'missing_weight': weight == 0,
             'show_reminder': meals == 0 and water == 0,
         })
+
+    # ----- Feature 9: Guest Mode -----
+    @app.route('/guest-login')
+    def guest_login():
+        session.pop('guest_name', None)
+        name = request.args.get('name', 'Ospite')
+        session['guest_name'] = name
+        session['guest_expires'] = (datetime.now() + timedelta(hours=24)).isoformat()
+        flash(f'Benvenuto {name}! Sei in modalità ospite per 24h.', 'success')
+        return redirect(url_for('index'))
+
+    # ----- Feature 2: Meal Planner -----
+    @app.route('/meal-planner')
+    @login_required
+    def meal_planner():
+        from datetime import date, timedelta
+        week_start_str = request.args.get('week_start', '')
+        today = date.today()
+        if week_start_str:
+            try:
+                week_start = datetime.strptime(week_start_str, '%Y-%m-%d').date()
+            except ValueError:
+                week_start = today - timedelta(days=today.weekday())
+        else:
+            week_start = today - timedelta(days=today.weekday())
+        week_end = week_start + timedelta(days=6)
+
+        plan = MealPlan.query.filter_by(user_id=current_user.id, week_start=week_start).first()
+        days = []
+        for i in range(7):
+            day_date = week_start + timedelta(days=i)
+            day_entries = plan.entries.filter_by(day=i).all() if plan else []
+            days.append({'date': day_date, 'entries': day_entries, 'day_num': i})
+
+        summary = get_meal_plan_summary(plan) if plan else None
+        foods = Food.query.order_by(Food.name).all()
+
+        return render_template('meal_planner.html', plan=plan, days=days,
+                               week_start=week_start, week_end=week_end,
+                               summary=summary, foods=foods)
+
+    @app.route('/meal-planner/add', methods=['POST'])
+    @login_required
+    def meal_planner_add():
+        from datetime import date, timedelta
+        week_start_str = request.form.get('week_start')
+        day_num = int(request.form.get('day'))
+        meal_type = request.form.get('meal_type')
+        food_id = request.form.get('food_id', type=int)
+        quantity_g = float(request.form.get('quantity_g', 100))
+        notes = request.form.get('notes', '')
+        week_start = datetime.strptime(week_start_str, '%Y-%m-%d').date()
+
+        plan = MealPlan.query.filter_by(user_id=current_user.id, week_start=week_start).first()
+        if not plan:
+            plan = MealPlan(user_id=current_user.id, week_start=week_start)
+            db.session.add(plan)
+            db.session.flush()
+
+        entry = MealPlanEntry(meal_plan_id=plan.id, day=day_num, meal_type=meal_type,
+                              food_id=food_id, quantity_g=quantity_g, notes=notes)
+        db.session.add(entry)
+        db.session.commit()
+        flash('Pasto pianificato!', 'success')
+        return redirect(url_for('meal_planner', week_start=week_start_str))
+
+    @app.route('/meal-planner/delete/<int:entry_id>', methods=['POST'])
+    @login_required
+    def meal_planner_delete(entry_id):
+        entry = MealPlanEntry.query.get_or_404(entry_id)
+        plan = MealPlan.query.get(entry.meal_plan_id)
+        if plan and plan.user_id != current_user.id:
+            abort(403)
+        db.session.delete(entry)
+        db.session.commit()
+        flash('Pasto rimosso dal piano.', 'success')
+        return redirect(url_for('meal_planner', week_start=plan.week_start.isoformat() if plan else ''))
+
+    @app.route('/meal-planner/remove-plan/<int:plan_id>', methods=['POST'])
+    @login_required
+    def meal_planner_remove(plan_id):
+        plan = MealPlan.query.get_or_404(plan_id)
+        if plan.user_id != current_user.id:
+            abort(403)
+        db.session.delete(plan)
+        db.session.commit()
+        flash('Piano settimanale eliminato.', 'success')
+        return redirect(url_for('meal_planner'))
+
+    # ----- Feature 3: Challenges -----
+    @app.route('/challenges')
+    @login_required
+    def challenges():
+        all_challenges = Challenge.query.filter_by(is_active=True).order_by(Challenge.created_at.desc()).all()
+        my_challenges = [c for c in all_challenges if ChallengeParticipant.query.filter_by(
+            challenge_id=c.id, user_id=current_user.id).first()]
+        open_challenges = [c for c in all_challenges if c not in my_challenges]
+        return render_template('challenges.html', my_challenges=my_challenges, open_challenges=open_challenges)
+
+    @app.route('/challenges/create', methods=['GET', 'POST'])
+    @login_required
+    def challenges_create():
+        if request.method == 'POST':
+            name = request.form.get('name', '').strip()
+            desc = request.form.get('description', '')
+            ctype = request.form.get('challenge_type', 'steps')
+            target = float(request.form.get('target', 10000))
+            start = request.form.get('start_date', date.today().isoformat())
+            end = request.form.get('end_date', (date.today() + timedelta(days=7)).isoformat())
+            if not name:
+                flash('Nome richiesto.', 'danger')
+                return render_template('challenges_create.html')
+            c = Challenge(creator_id=current_user.id, name=name, description=desc,
+                          challenge_type=ctype, target=target,
+                          start_date=datetime.strptime(start, '%Y-%m-%d').date(),
+                          end_date=datetime.strptime(end, '%Y-%m-%d').date())
+            db.session.add(c)
+            db.session.flush()
+            p = ChallengeParticipant(challenge_id=c.id, user_id=current_user.id)
+            db.session.add(p)
+            db.session.commit()
+            flash('Sfida creata!', 'success')
+            return redirect(url_for('challenges'))
+        return render_template('challenges_create.html')
+
+    @app.route('/challenges/join/<int:challenge_id>', methods=['POST'])
+    @login_required
+    def challenges_join(challenge_id):
+        c = Challenge.query.get_or_404(challenge_id)
+        if not ChallengeParticipant.query.filter_by(challenge_id=c.id, user_id=current_user.id).first():
+            p = ChallengeParticipant(challenge_id=c.id, user_id=current_user.id)
+            db.session.add(p)
+            db.session.commit()
+            flash('Sei iscritto alla sfida!', 'success')
+        else:
+            flash('Sei già iscritto.', 'info')
+        return redirect(url_for('challenges'))
+
+    @app.route('/challenges/<int:challenge_id>')
+    @login_required
+    def challenge_detail(challenge_id):
+        c = Challenge.query.get_or_404(challenge_id)
+        participants = ChallengeParticipant.query.filter_by(challenge_id=c.id).all()
+        for p in participants:
+            if c.challenge_type == 'steps' and current_user.last_sync_at:
+                from models import DailyActivity
+                total = db.session.query(db.func.sum(DailyActivity.steps)).filter(
+                    DailyActivity.user_id == p.user_id,
+                    DailyActivity.date >= c.start_date,
+                    DailyActivity.date <= c.end_date,
+                ).scalar() or 0
+                p.progress = total
+        participants.sort(key=lambda x: x.progress, reverse=True)
+        return render_template('challenge_detail.html', challenge=c, participants=participants)
+
+    @app.route('/challenges/update-progress/<int:challenge_id>', methods=['POST'])
+    @login_required
+    def challenge_update_progress(challenge_id):
+        p = ChallengeParticipant.query.filter_by(challenge_id=challenge_id, user_id=current_user.id).first()
+        if p:
+            p.progress = float(request.form.get('progress', 0))
+            db.session.commit()
+            flash('Progresso aggiornato!', 'success')
+        return redirect(url_for('challenge_detail', challenge_id=challenge_id))
+
+    # ----- Feature 4: Web Push Notifications -----
+    import json as _json
+
+    @app.route('/api/push/public-key')
+    def push_public_key():
+        from config import Config
+        key = os.environ.get('VAPID_PUBLIC_KEY', '')
+        return jsonify({'key': key})
+
+    @app.route('/api/push/subscribe', methods=['POST'])
+    @login_required
+    def push_subscribe():
+        data = request.get_json()
+        if not data or not data.get('endpoint'):
+            return jsonify({'error': 'Missing endpoint'}), 400
+        sub = PushSubscription.query.filter_by(user_id=current_user.id, endpoint=data['endpoint']).first()
+        if not sub:
+            sub = PushSubscription(user_id=current_user.id, endpoint=data['endpoint'],
+                                   p256dh=data.get('keys', {}).get('p256dh', ''),
+                                   auth=data.get('keys', {}).get('auth', ''))
+            db.session.add(sub)
+            db.session.commit()
+        return jsonify({'status': 'ok'})
+
+    @app.route('/api/push/unsubscribe', methods=['POST'])
+    @login_required
+    def push_unsubscribe():
+        data = request.get_json()
+        if data and data.get('endpoint'):
+            PushSubscription.query.filter_by(user_id=current_user.id, endpoint=data['endpoint']).delete()
+            db.session.commit()
+        return jsonify({'status': 'ok'})
+
+    # ----- Feature 5: PDF Report -----
+    @app.route('/report/pdf')
+    @login_required
+    def report_pdf():
+        from fpdf import FPDF
+        data = generate_report_data(current_user)
+        pdf = FPDF()
+        pdf.add_page()
+        pdf.set_font('Helvetica', 'B', 20)
+        pdf.cell(0, 15, f'Report {current_user.name}', align='C', new_x='LMARGIN', new_y='NEXT')
+        pdf.set_font('Helvetica', '', 12)
+        pdf.cell(0, 8, f'Periodo: ultimi 30 giorni', new_x='LMARGIN', new_y='NEXT')
+        pdf.ln(5)
+        pdf.set_font('Helvetica', 'B', 14)
+        pdf.cell(0, 10, 'Riepilogo', new_x='LMARGIN', new_y='NEXT')
+        pdf.set_font('Helvetica', '', 11)
+        pdf.cell(0, 7, f"Peso iniziale: {data['first_weight']} kg", new_x='LMARGIN', new_y='NEXT')
+        pdf.cell(0, 7, f"Peso attuale: {data['last_weight']} kg", new_x='LMARGIN', new_y='NEXT')
+        diff = data['weight_change']
+        sign = '+' if diff > 0 else ''
+        pdf.cell(0, 7, f"Variazione: {sign}{diff} kg", new_x='LMARGIN', new_y='NEXT')
+        pdf.cell(0, 7, f"Media calorie giornaliere: {data['avg_daily_kcal']} kcal", new_x='LMARGIN', new_y='NEXT')
+        pdf.cell(0, 7, f"Allenamenti totali: {data['total_workouts']}", new_x='LMARGIN', new_y='NEXT')
+        pdf.cell(0, 7, f"Minuti totali: {data['total_workout_min']} min", new_x='LMARGIN', new_y='NEXT')
+        pdf.ln(10)
+        pdf.set_font('Helvetica', 'B', 14)
+        pdf.cell(0, 10, 'Dettaglio Piano', new_x='LMARGIN', new_y='NEXT')
+        pdf.set_font('Helvetica', '', 11)
+        pdf.cell(0, 7, f"TDEE: {data['plan'].tdee} kcal", new_x='LMARGIN', new_y='NEXT')
+        pdf.cell(0, 7, f"Target: {data['plan'].target_kcal} kcal", new_x='LMARGIN', new_y='NEXT')
+        pdf.cell(0, 7, f"Proteine: {data['plan'].protein_g}g | Carboidrati: {data['plan'].carbs_g}g | Grassi: {data['plan'].fat_g}g", new_x='LMARGIN', new_y='NEXT')
+        response = Response(bytes(pdf.output()), mimetype='application/pdf')
+        response.headers['Content-Disposition'] = f'attachment; filename=report_{current_user.name}_{date.today().isoformat()}.pdf'
+        return response
+
+    # ----- Feature 6: Food Photo AI -----
+    @app.route('/api/analyze-food-photo', methods=['POST'])
+    @login_required
+    def analyze_food_photo():
+        from flask import current_app
+        api_key = current_app.config.get('GEMINI_API_KEY', '')
+        if not api_key:
+            return jsonify({'error': 'API key non configurata'}), 400
+        if 'photo' not in request.files:
+            return jsonify({'error': 'Nessuna foto'}), 400
+        photo = request.files['photo']
+        image_data = base64.b64encode(photo.read()).decode('utf-8')
+        mime = photo.content_type or 'image/jpeg'
+        try:
+            resp = requests.post(
+                f'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={api_key}',
+                json={
+                    'contents': [{
+                        'parts': [
+                            {'inline_data': {'mime_type': mime, 'data': image_data}},
+                            {'text': 'Identifica questo cibo e stima calorie, proteine, carboidrati, grassi per una porzione standard in grammi. Rispondi solo in formato JSON: {"name":"nome cibo","kcal":numero,"protein_g":numero,"carbs_g":numero,"fat_g":numero,"portion_g":numero}'}
+                        ]
+                    }]
+                },
+                timeout=15,
+            )
+            if resp.status_code == 200:
+                text = resp.json().get('candidates', [{}])[0].get('content', {}).get('parts', [{}])[0].get('text', '')
+                import re as _re
+                json_match = _re.search(r'\{.*\}', text, _re.DOTALL)
+                if json_match:
+                    data = json.loads(json_match.group())
+                    return jsonify(data)
+            return jsonify({'error': 'Analisi non riuscita'}), 500
+        except Exception as e:
+            return jsonify({'error': str(e)}), 500
+
+    # ----- Feature 7: Coach Dashboard -----
+    @app.route('/coach/dashboard')
+    @login_required
+    def coach_dashboard():
+        if not current_user.is_admin and current_user.id != current_user.coach_id:
+            clients = User.query.filter_by(coach_id=current_user.id).all()
+        elif current_user.is_admin:
+            clients = User.query.filter(User.coach_id.isnot(None)).all()
+        else:
+            clients = []
+        client_data = []
+        for c in clients:
+            w = c.current_weight
+            client_data.append({
+                'user': c,
+                'weight': w,
+                'target': c.target_weight_kg,
+                'workouts_last_week': WorkoutEntry.query.filter(
+                    WorkoutEntry.user_id == c.id,
+                    WorkoutEntry.date >= date.today() - timedelta(days=7),
+                ).count(),
+            })
+        return render_template('coach_dashboard.html', clients=client_data)
+
+    @app.route('/admin/assign-coach/<int:user_id>', methods=['POST'])
+    @login_required
+    @admin_required
+    def assign_coach(user_id):
+        user = User.query.get_or_404(user_id)
+        coach_id = request.form.get('coach_id', type=int)
+        user.coach_id = coach_id or None
+        db.session.commit()
+        flash(f'Coach assegnato a {user.name}.', 'success')
+        return redirect(url_for('admin_pending'))
+
+    # ----- Feature 10: Seasonal Theme API -----
+    @app.route('/api/season')
+    def season_api():
+        return jsonify(get_current_season())
 
     @app.errorhandler(404)
     def page_not_found(e):

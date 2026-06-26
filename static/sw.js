@@ -36,6 +36,19 @@ self.addEventListener('message', (e) => {
   }
 });
 
+self.addEventListener('push', (e) => {
+  let data = {};
+  if (e.data) {
+    try { data = e.data.json(); } catch (e) {}
+  }
+  const title = data.title || 'Ajò';
+  const body = data.body || 'Promemoria dal tuo coach';
+  e.waitUntil(self.registration.showNotification(title, {
+    body, icon: '/static/icon-192.png', badge: '/static/icon-192.png',
+    vibrate: [200, 100, 200],
+  }));
+});
+
 self.addEventListener('notificationclick', (e) => {
   e.notification.close();
   e.waitUntil(

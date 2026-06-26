@@ -496,7 +496,76 @@ def generate_coach_messages(user, today=None):
     # Sort by priority
     priority_order = {'high': 0, 'normal': 1, 'low': 2}
     messages.sort(key=lambda m: priority_order.get(m['priority'], 2))
+
+    try:
+        ai_msg = _generate_ai_coach_message(user)
+        if ai_msg:
+            messages.insert(0, ai_msg)
+    except Exception:
+        pass
+
     return messages
+
+
+def _generate_ai_coach_message(user):
+    from flask import current_app
+    import requests as _req
+
+    api_key = current_app.config.get('GEMINI_API_KEY', '')
+    if not api_key:
+        return None
+
+    w = user.current_weight or user.target_weight_kg or 75
+    target = user.target_weight_kg or 0
+    plan = build_plan(w, user.target_weight_kg, user.height_cm, user.age, user.gender,
+                      user.activity_level, user.deficit_kcal, user.diet_type)
+
+    today = date.today()
+    week_ago = today - timedelta(days=7)
+    recent_meals = MealEntry.query.filter(
+        MealEntry.user_id == user.id,
+        MealEntry.date >= week_ago,
+    ).count()
+    recent_workouts = WorkoutEntry.query.filter(
+        WorkoutEntry.user_id == user.id,
+        WorkoutEntry.date >= week_ago,
+    ).count()
+    recent_water = WaterEntry.query.filter(
+        WaterEntry.user_id == user.id,
+        WaterEntry.date == today,
+    ).all()
+    total_water = sum(w.amount_ml for w in recent_water)
+
+    prompt = f"""Sei un coach fitness italiano. Dai un consiglio breve (max 200 caratteri) personalizzato per:
+- Nome: {user.name}
+- Peso: {w}kg, Obiettivo: {target}kg
+- Deficit giornaliero: {plan.deficit_used}kcal
+- Pasti registrati ultimi 7gg: {recent_meals}
+- Allenamenti ultimi 7gg: {recent_workouts}
+- Acqua oggi: {total_water}ml
+- Dieta: {user.diet_type}
+
+Rispondi con un solo messaggio motivazionale e concreto in italiano, senza saluti."""
+
+    try:
+        resp = _req.post(
+            f'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={api_key}',
+            json={'contents': [{'parts': [{'text': prompt}]}]},
+            timeout=10,
+        )
+        if resp.status_code == 200:
+            text = resp.json().get('candidates', [{}])[0].get('content', {}).get('parts', [{}])[0].get('text', '')
+            if text:
+                return {
+                    'icon': '🤖',
+                    'type': 'ai_coach',
+                    'title': 'Coach AI',
+                    'body': text.strip(),
+                    'priority': 'high',
+                }
+    except Exception:
+        pass
+    return None
 
 
 BUILTIN_PROGRAMS = [
@@ -907,3 +976,73 @@ def _day_was_completed(enrollment, user, day_date):
         return False
 
     return True
+
+
+def get_meal_plan_summary(meal_plan):
+    """Aggregate planned meals into a shopping list."""
+    from collections import defaultdict
+    foods = defaultdict(float)
+    for entry in meal_plan.entries:
+        name = entry.display_name
+        foods[name] += entry.quantity_g
+    shopping = [{'name': name, 'total_g': round(qty, 0)} for name, qty in sorted(foods.items())]
+    total_kcal = sum(e.kcal for e in meal_plan.entries)
+    return {'shopping_list': shopping, 'total_kcal': round(total_kcal), 'meal_count': meal_plan.entries.count()}
+
+
+def generate_report_data(user):
+    """Collect data for PDF report."""
+    from models import WeightLog, WorkoutEntry, MealEntry
+    from datetime import date, timedelta
+
+    today = date.today()
+    month_ago = today - timedelta(days=30)
+
+    weights = WeightLog.query.filter(
+        WeightLog.user_id == user.id,
+        WeightLog.date >= month_ago,
+    ).order_by(WeightLog.date).all()
+
+    workouts = WorkoutEntry.query.filter(
+        WorkoutEntry.user_id == user.id,
+        WorkoutEntry.date >= month_ago,
+    ).order_by(WorkoutEntry.date).all()
+
+    meals = MealEntry.query.filter(
+        MealEntry.user_id == user.id,
+        MealEntry.date >= month_ago,
+    ).order_by(MealEntry.date).all()
+
+    w = user.current_weight or user.target_weight_kg
+    plan = build_plan(w, user.target_weight_kg, user.height_cm, user.age, user.gender,
+                      user.activity_level, user.deficit_kcal, user.diet_type)
+    avg_kcal = round(sum(m.kcal for m in meals) / max(len(meals), 1))
+    total_workout_min = sum(w.duration_min for w in workouts)
+    weight_change = (weights[-1].weight - weights[0].weight) if len(weights) >= 2 else 0
+
+    return {
+        'user': user,
+        'plan': plan,
+        'weights': weights,
+        'workouts': workouts,
+        'avg_daily_kcal': avg_kcal,
+        'total_workout_min': total_workout_min,
+        'total_workouts': len(workouts),
+        'weight_change': round(weight_change, 1),
+        'first_weight': weights[0].weight if weights else 0,
+        'last_weight': weights[-1].weight if weights else 0,
+    }
+
+
+def get_current_season():
+    """Return current season name and colors."""
+    from datetime import date
+    m = date.today().month
+    if 3 <= m <= 5:
+        return {'name': 'primavera', 'accent': '#2ecc71', 'bg': '#0d1f15'}
+    elif 6 <= m <= 8:
+        return {'name': 'estate', 'accent': '#ff6b35', 'bg': '#1a0f0a'}
+    elif 9 <= m <= 11:
+        return {'name': 'autunno', 'accent': '#d4a017', 'bg': '#1a1508'}
+    else:
+        return {'name': 'inverno', 'accent': '#5b9bd5', 'bg': '#0a0f1a'}

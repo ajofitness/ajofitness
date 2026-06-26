@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% block title %}{{ APP_NAME }} - Coach{% endblock %}
+{% block content %}
+<div class="container py-4">
+  <div class="d-flex align-items-center gap-3 mb-4">
+    <div class="ft-icon-circle bg-gradient-soft">
+      <i class="bi bi-people fs-2"></i>
+    </div>
+    <div>
+      <h1 class="fw-bold mb-0">Dashboard Coach</h1>
+      <p class="text-light-50 mb-0">I tuoi clienti</p>
+    </div>
+  </div>
+
+  {% if clients %}
+  <div class="row g-3">
+    {% for c in clients %}
+    <div class="col-md-6 col-lg-4">
+      <div class="ft-card">
+        <div class="card-body">
+          <h5>{{ c.user.name }}</h5>
+          <div class="d-flex justify-content-between small text-light-50 mb-2">
+            <span>Peso: {{ c.weight or 'N/D' }}kg</span>
+            <span>Target: {{ c.target }}kg</span>
+          </div>
+          <div class="d-flex justify-content-between small text-light-50 mb-2">
+            <span>Allenamenti (7gg): {{ c.workouts_last_week }}</span>
+          </div>
+          {% if c.weight and c.target %}
+          <div class="ft-progress-bar-wrap mt-2">
+            {% set pct = ((c.weight / c.target) * 100)|round(0) if c.target > 0 else 0 %}
+            <div class="ft-progress-bar-fill" style="width: {{ pct }}%"></div>
+          </div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  {% else %}
+  <div class="ft-card text-center py-5">
+    <i class="bi bi-emoji-neutral fs-1 text-light-50"></i>
+    <p class="text-light-50 mt-2">Nessun cliente assegnato.</p>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}
